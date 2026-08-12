@@ -23,7 +23,7 @@ function DottedValue({ value }: { value: string }) {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start gap-2 text-[9pt]">
-      <span className="w-[22mm] shrink-0">{label}</span>
+      <span className="w-[24mm] shrink-0 whitespace-nowrap">{label}</span>
       <span className="shrink-0">:</span>
       <DottedValue value={value} />
     </div>
@@ -91,7 +91,7 @@ export function SuratJalanPanel({ data }: { data: PanelData }) {
           <p className="mt-[14mm] border-b border-dotted border-ink/60" />
           <p className="mt-[1mm]">(&nbsp;.................................&nbsp;)</p>
         </div>
-        <div className="w-[55mm] text-right">
+        <div className="w-[62mm] text-right">
           <p className="text-brand">HORMAT KAMI,</p>
           <div className="mt-[3mm] space-y-[1mm] text-left">
             <Row label="Nama Pengirim" value={data.pengirim} />
