@@ -154,3 +154,42 @@
     color: var(--color-foreground);
   }
 }
+
+/* ---- Lembar cetak A4 lanskap (2 x A5) ---- */
+.sheet-a4 {
+  width: 297mm;
+  height: 210mm;
+  background: var(--paper);
+  color: var(--ink);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  font-family: var(--font-sans);
+}
+
+.sheet-a4 > * + * {
+  border-left: 1px dashed color-mix(in oklab, var(--ink) 45%, transparent);
+}
+
+@page {
+  size: A4 landscape;
+  margin: 0;
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-area {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 0;
+    transform: none !important;
+  }
+  .sheet-a4 {
+    box-shadow: none;
+  }
+}
