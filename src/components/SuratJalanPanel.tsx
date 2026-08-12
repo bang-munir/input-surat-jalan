@@ -78,7 +78,7 @@ export function SuratJalanPanel({ data }: { data: PanelData }) {
         </thead>
         <tbody>
           <tr>
-            <td className="h-[26mm] border border-ink px-[3mm] py-[2mm] text-center align-top font-bold">
+            <td className="h-[38mm] border border-ink px-[3mm] py-[2mm] text-center align-top font-bold">
               {data.banyaknya}
             </td>
             <td className="border border-ink px-[3mm] py-[2mm] align-top">{data.namaBarang}</td>
@@ -86,14 +86,14 @@ export function SuratJalanPanel({ data }: { data: PanelData }) {
         </tbody>
       </table>
 
-      <div className="mt-[8mm] grid grid-cols-2 text-center text-[6.5pt]">
+      <div className="mt-[10mm] grid grid-cols-2 text-center text-[6.5pt]">
         <div>
           <p className="tracking-[0.12em] text-brand">PENERIMA,</p>
-          <p className="mt-[12mm]">(&nbsp;.................................................&nbsp;)</p>
+          <p className="mt-[16mm]">(&nbsp;.................................................&nbsp;)</p>
         </div>
         <div>
           <p className="tracking-[0.12em] text-brand">HORMAT KAMI,</p>
-          <p className="mt-[12mm] font-bold">( {data.pengirim || "................."} )</p>
+          <p className="mt-[16mm] font-bold">( {data.pengirim || "................."} )</p>
         </div>
       </div>
 
