@@ -79,7 +79,7 @@ export function SuratJalanPanel({ data }: { data: PanelData }) {
 
         {data.keterangan ? (
           <div className="mt-[3mm] text-[8pt]">
-            <p className="tracking-[0.15em] text-accent">KETERANGAN PENGIRIMAN</p>
+            <p className="tracking-[0.15em] text-brand">KETERANGAN PENGIRIMAN</p>
             <p className="italic font-semibold">&ldquo;{data.keterangan}&rdquo;</p>
           </div>
         ) : null}
@@ -87,12 +87,12 @@ export function SuratJalanPanel({ data }: { data: PanelData }) {
 
       <div className="mt-[4mm] flex items-end justify-between text-[8.5pt]">
         <div className="w-[45mm]">
-          <p className="text-accent">PENERIMA,</p>
+          <p className="text-brand">PENERIMA,</p>
           <p className="mt-[14mm] border-b border-dotted border-ink/60" />
           <p className="mt-[1mm]">(&nbsp;.................................&nbsp;)</p>
         </div>
         <div className="w-[55mm] text-right">
-          <p className="text-accent">HORMAT KAMI,</p>
+          <p className="text-brand">HORMAT KAMI,</p>
           <div className="mt-[3mm] space-y-[1mm] text-left">
             <Row label="Nama Pengirim" value={data.pengirim} />
             <Row label="No. Telp" value={data.teleponPengirim} />
