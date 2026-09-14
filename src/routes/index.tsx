@@ -70,10 +70,16 @@ const basePanel: PanelData = {
 
 function GeneratorPage() {
   const { customers } = useCustomers();
-  const [left, setLeft] = useState<PanelData>(emptyPanel);
-  const [right, setRight] = useState<PanelData>(emptyPanel);
+  const [left, setLeft] = useState<PanelData>(basePanel);
+  const [right, setRight] = useState<PanelData>(basePanel);
   const sheetRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const today = todayISO();
+    setLeft((prev) => ({ ...prev, nomor: generateNomor(), tanggal: today }));
+    setRight((prev) => ({ ...prev, nomor: generateNomor(), tanggal: today }));
+  }, []);
 
   const renderLeft = useMemo(
     () => ({ ...left, tanggal: formatTanggal(left.tanggal) }),
