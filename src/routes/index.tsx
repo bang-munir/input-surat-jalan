@@ -91,7 +91,7 @@ function GeneratorPage() {
     [right],
   );
 
-  const downloadPng = async () => {
+  const downloadPdf = async () => {
     const node = sheetRef.current;
     if (!node) return;
     setBusy(true);
@@ -101,15 +101,24 @@ function GeneratorPage() {
         backgroundColor: "#ffffff",
         width: node.offsetWidth,
         height: node.offsetHeight,
-        style: { transform: "none", margin: "0" },
+        style: { transform: "none", margin: "0", boxShadow: "none" },
       });
-      const a = document.createElement("a");
-      a.href = dataUrl;
-      a.download = `surat-jalan-${left.nomor || "tanpa-nomor"}.png`;
-      a.click();
-      toast.success("Gambar PNG berhasil diunduh");
+
+      const { jsPDF } = await import("jspdf");
+      const isPortrait = orientation === "portrait";
+      const pdf = new jsPDF({
+        orientation: isPortrait ? "portrait" : "landscape",
+        unit: "mm",
+        format: "a4",
+        compress: true,
+      });
+      const w = isPortrait ? 210 : 297;
+      const h = isPortrait ? 297 : 210;
+      pdf.addImage(dataUrl, "PNG", 0, 0, w, h, undefined, "FAST");
+      pdf.save(`surat-jalan-${left.nomor || "tanpa-nomor"}.pdf`);
+      toast.success("PDF berhasil diunduh (A4 siap cetak)");
     } catch {
-      toast.error("Gagal membuat gambar PNG");
+      toast.error("Gagal membuat PDF");
     } finally {
       setBusy(false);
     }
