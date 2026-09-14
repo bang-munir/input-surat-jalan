@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { toPng } from "html-to-image";
 import { Copy, Download, Printer } from "lucide-react";
 import { toast } from "sonner";
 
@@ -19,21 +18,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCustomers } from "@/lib/customers";
+import { buildSuratJalanPdf, type SlipData } from "@/lib/suratJalanPdf";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Generator Surat Jalan A4 Lanskap (2x A5)" },
+      { title: "Generator Surat Jalan A4 Lanskap 2 Surat" },
       {
         name: "description",
         content:
-          "Buat, cetak, dan unduh surat jalan PNG format A4 lanskap berisi dua lembar A5 dengan master data pelanggan.",
+          "Buat surat jalan profesional: satu halaman A4 lanskap berisi dua surat jalan lanskap, siap cetak dan unduh PDF.",
       },
       { property: "og:title", content: "Generator Surat Jalan A4 Lanskap" },
       {
         property: "og:description",
-        content: "Isi otomatis dari master data pelanggan, cetak atau unduh PNG siap potong.",
+        content: "Dua surat jalan lanskap dalam satu halaman A4, unduh PDF tajam siap cetak.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: GeneratorPage,
@@ -66,57 +68,43 @@ const basePanel: PanelData = {
   keterangan: "",
   pengirim: "",
   teleponPengirim: "",
+  alamatPengirim: "",
 };
+
+/** Surat dianggap kosong bila tidak ada isi selain nomor & tanggal otomatis. */
+function isEmptySlip(d: PanelData) {
+  return ![d.kepada, d.pengirim, d.namaBarang, d.banyaknya, d.alamat, d.telepon].some((v) =>
+    v.trim(),
+  );
+}
 
 function GeneratorPage() {
   const { customers } = useCustomers();
-  const [left, setLeft] = useState<PanelData>(basePanel);
-  const [right, setRight] = useState<PanelData>(basePanel);
+  const [atas, setAtas] = useState<PanelData>(basePanel);
+  const [bawah, setBawah] = useState<PanelData>(basePanel);
   const sheetRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
-  const [orientation, setOrientation] = useState<"landscape" | "portrait">("landscape");
 
   useEffect(() => {
     const today = todayISO();
-    setLeft((prev) => ({ ...prev, nomor: generateNomor(), tanggal: today }));
-    setRight((prev) => ({ ...prev, nomor: generateNomor(), tanggal: today }));
+    setAtas((prev) => ({ ...prev, nomor: generateNomor(), tanggal: today }));
+    setBawah((prev) => ({ ...prev, nomor: generateNomor(), tanggal: today }));
   }, []);
 
-  const renderLeft = useMemo(
-    () => ({ ...left, tanggal: formatTanggal(left.tanggal) }),
-    [left],
-  );
-  const renderRight = useMemo(
-    () => ({ ...right, tanggal: formatTanggal(right.tanggal) }),
-    [right],
-  );
+  const renderAtas = useMemo(() => ({ ...atas, tanggal: formatTanggal(atas.tanggal) }), [atas]);
+  const renderBawah = useMemo(() => ({ ...bawah, tanggal: formatTanggal(bawah.tanggal) }), [bawah]);
+
+  const bawahKosong = isEmptySlip(bawah);
 
   const downloadPdf = async () => {
-    const node = sheetRef.current;
-    if (!node) return;
     setBusy(true);
     try {
-      const dataUrl = await toPng(node, {
-        pixelRatio: 3,
-        backgroundColor: "#ffffff",
-        width: node.offsetWidth,
-        height: node.offsetHeight,
-        style: { transform: "none", margin: "0", boxShadow: "none" },
-      });
-
-      const { jsPDF } = await import("jspdf");
-      const isPortrait = orientation === "portrait";
-      const pdf = new jsPDF({
-        orientation: isPortrait ? "portrait" : "landscape",
-        unit: "mm",
-        format: "a4",
-        compress: true,
-      });
-      const w = isPortrait ? 210 : 297;
-      const h = isPortrait ? 297 : 210;
-      pdf.addImage(dataUrl, "PNG", 0, 0, w, h, undefined, "FAST");
-      pdf.save(`surat-jalan-${left.nomor || "tanpa-nomor"}.pdf`);
-      toast.success("PDF berhasil diunduh (A4 siap cetak)");
+      const pdf = await buildSuratJalanPdf(
+        renderAtas as SlipData,
+        bawahKosong ? null : (renderBawah as SlipData),
+      );
+      pdf.save(`surat-jalan-${atas.nomor || "tanpa-nomor"}.pdf`);
+      toast.success("PDF A4 lanskap berhasil diunduh");
     } catch {
       toast.error("Gagal membuat PDF");
     } finally {
@@ -125,79 +113,64 @@ function GeneratorPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background font-sans">
+    <div className="min-h-screen overflow-x-hidden bg-background font-sans">
       <AppNav />
 
       <main className="mx-auto max-w-7xl px-4 py-8">
-        <div className="no-print mb-8 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 sm:flex sm:justify-between">
+        <div className="no-print mb-8 flex flex-wrap items-end justify-between gap-4">
           <div className="min-w-0">
             <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
               Generator Surat Jalan
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Satu halaman A4 lanskap berisi dua lembar A5 siap potong.
+              Satu halaman A4 lanskap berisi dua surat jalan lanskap, siap potong.
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
             <Button variant="outline" onClick={() => window.print()}>
-              <Printer className="h-4 w-4" /> Cetak / PDF
+              <Printer className="h-4 w-4" /> Cetak
             </Button>
-            <Button onClick={downloadPng} disabled={busy}>
-              <Download className="h-4 w-4" /> {busy ? "Memproses…" : "Unduh PNG"}
+            <Button onClick={downloadPdf} disabled={busy}>
+              <Download className="h-4 w-4" /> {busy ? "Memproses…" : "Download PDF"}
             </Button>
           </div>
         </div>
 
         <div className="no-print grid gap-6 lg:grid-cols-2">
           <PanelForm
-            title="Sisi Kiri"
-            data={left}
-            onChange={setLeft}
+            title="Surat Atas"
+            data={atas}
+            onChange={setAtas}
             customers={customers}
             action={
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => setRight({ ...left })}
+                onClick={() => setBawah({ ...atas, nomor: bawah.nomor })}
                 className="shrink-0"
               >
-                <Copy className="h-3.5 w-3.5" /> Salin ke kanan
+                <Copy className="h-3.5 w-3.5" /> Salin ke bawah
               </Button>
             }
           />
-          <PanelForm
-            title="Sisi Kanan"
-            data={right}
-            onChange={setRight}
-            customers={customers}
-          />
+          <PanelForm title="Surat Bawah" data={bawah} onChange={setBawah} customers={customers} />
         </div>
 
         <section className="mt-10">
-          <div className="no-print mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:justify-between">
-            <h2 className="truncate font-display text-sm font-semibold tracking-[0.2em] text-muted-foreground">
-              PRATINJAU A4 {orientation === "landscape" ? "LANSKAP" : "POTRET"}
+          <div className="no-print mb-3 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-display text-sm font-semibold tracking-[0.2em] text-muted-foreground">
+              PRATINJAU A4 LANSKAP
             </h2>
-            <div className="flex shrink-0 items-center gap-2">
-              <Label className="text-xs text-muted-foreground">Orientasi</Label>
-              <Select
-                value={orientation}
-                onValueChange={(v) => setOrientation(v as "landscape" | "portrait")}
-              >
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="landscape">Lanskap</SelectItem>
-                  <SelectItem value="portrait">Potret</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {bawahKosong && (
+              <p className="text-xs text-muted-foreground">
+                Surat bawah kosong — tidak akan ikut dicetak di PDF.
+              </p>
+            )}
           </div>
-          <div className="overflow-hidden rounded-2xl bg-paper-tint p-2 sm:p-4">
-            <SheetPreview sheetRef={sheetRef} orientation={orientation}>
-              <SuratJalanPanel data={renderLeft} />
-              <SuratJalanPanel data={renderRight} />
+          <div className="max-w-full overflow-x-auto rounded-2xl bg-paper-tint p-2 sm:p-4">
+            <SheetPreview sheetRef={sheetRef}>
+              <SuratJalanPanel data={renderAtas} />
+              <SuratJalanPanel data={renderBawah} />
             </SheetPreview>
           </div>
         </section>
@@ -229,37 +202,64 @@ function PanelForm({
       </div>
 
       <div className="mt-4 space-y-4">
-        <Field label="Pilih dari Master Pelanggan">
-          <Select
-            value=""
-            onValueChange={(id) => {
-              const c = customers.find((x) => x.id === id);
-              if (c)
-                onChange({
-                  ...data,
-                  kepada: c.nama,
-                  alamat: c.alamat,
-                  telepon: c.telepon,
-                  keterangan: c.catatan || data.keterangan,
-                });
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue
-                placeholder={
-                  customers.length ? "Cari & pilih pelanggan…" : "Belum ada data pelanggan"
-                }
-              />
-            </SelectTrigger>
-            <SelectContent>
-              {customers.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.nama}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Ambil data Penerima dari Master">
+            <Select
+              value=""
+              onValueChange={(id) => {
+                const c = customers.find((x) => x.id === id);
+                if (c)
+                  onChange({
+                    ...data,
+                    kepada: c.nama,
+                    alamat: c.alamat || "",
+                    telepon: c.telepon || "",
+                  });
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue
+                  placeholder={customers.length ? "Pilih penerima…" : "Belum ada master"}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {customers.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.nama}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Ambil data Pengirim dari Master">
+            <Select
+              value=""
+              onValueChange={(id) => {
+                const c = customers.find((x) => x.id === id);
+                if (c)
+                  onChange({
+                    ...data,
+                    pengirim: c.nama,
+                    alamatPengirim: c.alamat || "",
+                    teleponPengirim: c.telepon || "",
+                  });
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue
+                  placeholder={customers.length ? "Pilih pengirim…" : "Belum ada master"}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {customers.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.nama}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="No. Surat Jalan (otomatis)">
@@ -274,55 +274,55 @@ function PanelForm({
           </Field>
         </div>
 
-        <Field label="Kepada">
-          <Input value={data.kepada} onChange={(e) => set("kepada")(e.target.value)} />
-        </Field>
-        <Field label="Alamat">
-          <Textarea
-            rows={2}
-            value={data.alamat}
-            onChange={(e) => set("alamat")(e.target.value)}
-          />
-        </Field>
-        <Field label="No. Telp Penerima">
-          <Input value={data.telepon} onChange={(e) => set("telepon")(e.target.value)} />
-        </Field>
-
-        <div className="grid gap-4 sm:grid-cols-[100px_minmax(0,1fr)]">
-          <Field label="Banyaknya">
-            <Input
-              value={data.banyaknya}
-              placeholder="10 IKAT"
-              onChange={(e) => set("banyaknya")(e.target.value)}
-            />
-          </Field>
-          <Field label="Nama Barang">
-            <Input
-              value={data.namaBarang}
-              onChange={(e) => set("namaBarang")(e.target.value)}
-            />
-          </Field>
-        </div>
-
-        <Field label="Keterangan Pengiriman (opsional)">
-          <Input
-            value={data.keterangan}
-            placeholder="1 ikat isi 5 = (50 Pcs)"
-            onChange={(e) => set("keterangan")(e.target.value)}
-          />
-        </Field>
-
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Nama Pengirim">
             <Input value={data.pengirim} onChange={(e) => set("pengirim")(e.target.value)} />
           </Field>
-          <Field label="No. Telp Pengirim">
+          <Field label="No. Telp Pengirim (opsional)">
             <Input
               value={data.teleponPengirim}
               onChange={(e) => set("teleponPengirim")(e.target.value)}
             />
           </Field>
         </div>
+        <Field label="Alamat Pengirim (opsional)">
+          <Textarea
+            rows={2}
+            value={data.alamatPengirim}
+            onChange={(e) => set("alamatPengirim")(e.target.value)}
+          />
+        </Field>
+
+        <Field label="Kepada">
+          <Input value={data.kepada} onChange={(e) => set("kepada")(e.target.value)} />
+        </Field>
+        <Field label="No. Telp Penerima (opsional)">
+          <Input value={data.telepon} onChange={(e) => set("telepon")(e.target.value)} />
+        </Field>
+        <Field label="Alamat Penerima (opsional)">
+          <Textarea rows={2} value={data.alamat} onChange={(e) => set("alamat")(e.target.value)} />
+        </Field>
+
+        <div className="grid gap-4 sm:grid-cols-[110px_minmax(0,1fr)]">
+          <Field label="Banyaknya">
+            <Input
+              value={data.banyaknya}
+              placeholder="3 BAL"
+              onChange={(e) => set("banyaknya")(e.target.value)}
+            />
+          </Field>
+          <Field label="Nama Barang">
+            <Input value={data.namaBarang} onChange={(e) => set("namaBarang")(e.target.value)} />
+          </Field>
+        </div>
+
+        <Field label="Keterangan Pengiriman (opsional)">
+          <Input
+            value={data.keterangan}
+            placeholder="1 BAL isi 40pcs"
+            onChange={(e) => set("keterangan")(e.target.value)}
+          />
+        </Field>
       </div>
     </div>
   );
