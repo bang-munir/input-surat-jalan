@@ -235,8 +235,8 @@ function PanelForm({
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="No. Surat Jalan">
-            <Input value={data.nomor} onChange={(e) => set("nomor")(e.target.value)} />
+          <Field label="No. Surat Jalan (otomatis)">
+            <Input value={data.nomor} readOnly tabIndex={-1} className="bg-muted/50" />
           </Field>
           <Field label="Tanggal">
             <Input
