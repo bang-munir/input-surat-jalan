@@ -209,4 +209,7 @@
   .sheet-a4 {
     box-shadow: none;
   }
+  .sheet-a4.sheet-portrait {
+    page: portrait;
+  }
 }
