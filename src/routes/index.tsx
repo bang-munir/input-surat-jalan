@@ -50,9 +50,14 @@ function formatTanggal(iso: string) {
   return d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
 }
 
-const emptyPanel: PanelData = {
-  nomor: "SJ-0001",
-  tanggal: todayISO(),
+function generateNomor() {
+  const digits = Math.floor(1000 + Math.random() * 9000).toString();
+  return `SJ-${digits}`;
+}
+
+const basePanel: PanelData = {
+  nomor: "",
+  tanggal: "",
   kepada: "",
   alamat: "",
   telepon: "",
