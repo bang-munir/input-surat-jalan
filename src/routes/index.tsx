@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import { Copy, Download, Printer } from "lucide-react";
 import { toast } from "sonner";
@@ -50,9 +50,14 @@ function formatTanggal(iso: string) {
   return d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
 }
 
-const emptyPanel: PanelData = {
-  nomor: "SJ-0001",
-  tanggal: todayISO(),
+function generateNomor() {
+  const digits = Math.floor(1000 + Math.random() * 9000).toString();
+  return `SJ-${digits}`;
+}
+
+const basePanel: PanelData = {
+  nomor: "",
+  tanggal: "",
   kepada: "",
   alamat: "",
   telepon: "",
@@ -65,10 +70,16 @@ const emptyPanel: PanelData = {
 
 function GeneratorPage() {
   const { customers } = useCustomers();
-  const [left, setLeft] = useState<PanelData>(emptyPanel);
-  const [right, setRight] = useState<PanelData>(emptyPanel);
+  const [left, setLeft] = useState<PanelData>(basePanel);
+  const [right, setRight] = useState<PanelData>(basePanel);
   const sheetRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const today = todayISO();
+    setLeft((prev) => ({ ...prev, nomor: generateNomor(), tanggal: today }));
+    setRight((prev) => ({ ...prev, nomor: generateNomor(), tanggal: today }));
+  }, []);
 
   const renderLeft = useMemo(
     () => ({ ...left, tanggal: formatTanggal(left.tanggal) }),
