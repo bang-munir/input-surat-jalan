@@ -74,6 +74,7 @@ function GeneratorPage() {
   const [right, setRight] = useState<PanelData>(basePanel);
   const sheetRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
+  const [orientation, setOrientation] = useState<"landscape" | "portrait">("landscape");
 
   useEffect(() => {
     const today = todayISO();
