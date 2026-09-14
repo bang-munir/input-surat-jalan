@@ -155,32 +155,25 @@
   }
 }
 
-/* ---- Lembar cetak A4 (2 x A5) ---- */
+/* ---- Lembar cetak A4 lanskap berisi 2 surat jalan lanskap ---- */
 .sheet-a4 {
   width: 297mm;
   height: 210mm;
   background: var(--paper);
   color: var(--ink);
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 105mm 105mm;
   font-family: var(--font-sans);
 }
 
+.sheet-a4 > * {
+  overflow: hidden;
+}
+
 .sheet-a4 > * + * {
-  border-left: 1px dashed color-mix(in oklab, var(--ink) 45%, transparent);
-}
-
-.sheet-a4.sheet-portrait {
-  width: 210mm;
-  height: 297mm;
-  grid-template-columns: 1fr;
-  grid-template-rows: 1fr 1fr;
-}
-
-.sheet-a4.sheet-portrait > * + * {
-  border-left: none;
   border-top: 1px dashed color-mix(in oklab, var(--ink) 45%, transparent);
 }
+
 
 @page {
   size: A4 landscape;
