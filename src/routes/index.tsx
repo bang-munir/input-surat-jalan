@@ -164,11 +164,28 @@ function GeneratorPage() {
         </div>
 
         <section className="mt-10">
-          <h2 className="no-print mb-3 font-display text-sm font-semibold tracking-[0.2em] text-muted-foreground">
-            PRATINJAU A4 LANSKAP
-          </h2>
+          <div className="no-print mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:justify-between">
+            <h2 className="truncate font-display text-sm font-semibold tracking-[0.2em] text-muted-foreground">
+              PRATINJAU A4 {orientation === "landscape" ? "LANSKAP" : "POTRET"}
+            </h2>
+            <div className="flex shrink-0 items-center gap-2">
+              <Label className="text-xs text-muted-foreground">Orientasi</Label>
+              <Select
+                value={orientation}
+                onValueChange={(v) => setOrientation(v as "landscape" | "portrait")}
+              >
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="landscape">Lanskap</SelectItem>
+                  <SelectItem value="portrait">Potret</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <div className="overflow-hidden rounded-2xl bg-paper-tint p-2 sm:p-4">
-            <SheetPreview sheetRef={sheetRef}>
+            <SheetPreview sheetRef={sheetRef} orientation={orientation}>
               <SuratJalanPanel data={renderLeft} />
               <SuratJalanPanel data={renderRight} />
             </SheetPreview>
