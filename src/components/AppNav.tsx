@@ -5,7 +5,7 @@ export function AppNav() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const items = [
     { to: "/", label: "Generator", icon: FileText },
-    { to: "/pelanggan", label: "Master Pelanggan", icon: Users },
+    { to: "/pelanggan", label: "Master Data", icon: Users },
   ];
 
   return (

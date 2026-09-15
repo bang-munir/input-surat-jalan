@@ -9,50 +9,58 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useCustomers, type Customer } from "@/lib/customers";
+import { useSenders, type Sender } from "@/lib/senders";
 
 export const Route = createFileRoute("/pelanggan")({
   head: () => ({
     meta: [
-      { title: "Master Data Pelanggan | Surat Jalan" },
+      { title: "Master Pelanggan & Pengirim | Surat Jalan" },
       {
         name: "description",
         content:
-          "Simpan nama, alamat, dan nomor telepon pelanggan tetap agar surat jalan terisi otomatis.",
+          "Kelola master pelanggan penerima dan pengirim agar surat jalan terisi otomatis.",
       },
-      { property: "og:title", content: "Master Data Pelanggan" },
+      { property: "og:title", content: "Master Pelanggan & Pengirim" },
       {
         property: "og:description",
-        content: "Kelola daftar pelanggan tetap untuk pengisian otomatis surat jalan.",
+        content: "Kelola pelanggan penerima dan pengirim untuk pengisian otomatis surat jalan.",
       },
     ],
   }),
   component: MasterDataPage,
 });
 
+type MasterKind = "pelanggan" | "pengirim";
+type MasterRecord = Customer | Sender;
 const empty = { nama: "", alamat: "", telepon: "", catatan: "" };
 
 function MasterDataPage() {
   const { customers, addCustomer, updateCustomer, removeCustomer } = useCustomers();
+  const { senders, addSender, updateSender, removeSender } = useSenders();
+  const [kind, setKind] = useState<MasterKind>("pelanggan");
   const [form, setForm] = useState(empty);
-  const [editing, setEditing] = useState<Customer | null>(null);
+  const [editing, setEditing] = useState<MasterRecord | null>(null);
   const [q, setQ] = useState("");
 
-  const filtered = customers.filter((c) =>
+  const records = kind === "pelanggan" ? customers : senders;
+  const filtered = records.filter((c) =>
     `${c.nama} ${c.alamat} ${c.telepon}`.toLowerCase().includes(q.toLowerCase()),
   );
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.nama.trim()) {
-      toast.error("Nama pelanggan wajib diisi");
+      toast.error(kind === "pelanggan" ? "Nama pelanggan wajib diisi" : "Nama pengirim wajib diisi");
       return;
     }
     if (editing) {
-      updateCustomer(editing.id, form);
-      toast.success("Data pelanggan diperbarui");
+      if (kind === "pelanggan") updateCustomer(editing.id, form);
+      else updateSender(editing.id, form);
+      toast.success("Data berhasil diperbarui");
     } else {
-      addCustomer(form);
-      toast.success("Pelanggan ditambahkan");
+      if (kind === "pelanggan") addCustomer(form);
+      else addSender(form);
+      toast.success(kind === "pelanggan" ? "Pelanggan ditambahkan" : "Pengirim ditambahkan");
     }
     setForm(empty);
     setEditing(null);
@@ -63,11 +71,30 @@ function MasterDataPage() {
       <AppNav />
       <main className="mx-auto max-w-7xl px-4 py-8">
         <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
-          Master Data Pelanggan
+          Master Pelanggan & Pengirim
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Tersimpan di browser Anda, dipakai untuk isi otomatis surat jalan.
+          Pelanggan mengisi bagian Kepada, sedangkan pengirim mengisi bagian Nama Pengirim.
         </p>
+
+        <div className="mt-6 inline-flex rounded-lg border border-border bg-muted p-1">
+          {(["pelanggan", "pengirim"] as MasterKind[]).map((item) => (
+            <Button
+              key={item}
+              type="button"
+              size="sm"
+              variant={kind === item ? "default" : "ghost"}
+              onClick={() => {
+                setKind(item);
+                setEditing(null);
+                setForm(empty);
+                setQ("");
+              }}
+            >
+              {item === "pelanggan" ? "Pelanggan / Penerima" : "Pengirim"}
+            </Button>
+          ))}
+        </div>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-[380px_minmax(0,1fr)]">
           <form
@@ -76,7 +103,9 @@ function MasterDataPage() {
           >
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
               <h2 className="truncate font-display text-base font-bold">
-                {editing ? "Edit Pelanggan" : "Tambah Pelanggan"}
+                 {editing
+                   ? `Edit ${kind === "pelanggan" ? "Pelanggan" : "Pengirim"}`
+                   : `Tambah ${kind === "pelanggan" ? "Pelanggan" : "Pengirim"}`}
               </h2>
               {editing && (
                 <Button
@@ -95,14 +124,16 @@ function MasterDataPage() {
 
             <div className="mt-4 space-y-4">
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Nama Perusahaan / Penerima</Label>
+                 <Label className="text-xs text-muted-foreground">
+                   {kind === "pelanggan" ? "Nama Pelanggan / Penerima *" : "Nama Pengirim *"}
+                 </Label>
                 <Input
                   value={form.nama}
                   onChange={(e) => setForm({ ...form, nama: e.target.value })}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Alamat Lengkap</Label>
+                 <Label className="text-xs text-muted-foreground">Alamat (opsional)</Label>
                 <Textarea
                   rows={3}
                   value={form.alamat}
@@ -110,7 +141,7 @@ function MasterDataPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">No. Telepon / Kontak</Label>
+                 <Label className="text-xs text-muted-foreground">No. Telepon (opsional)</Label>
                 <Input
                   value={form.telepon}
                   onChange={(e) => setForm({ ...form, telepon: e.target.value })}
@@ -124,7 +155,7 @@ function MasterDataPage() {
                 />
               </div>
               <Button type="submit" className="w-full">
-                <Plus className="h-4 w-4" /> {editing ? "Simpan Perubahan" : "Tambah Pelanggan"}
+                 <Plus className="h-4 w-4" /> {editing ? "Simpan Perubahan" : `Tambah ${kind === "pelanggan" ? "Pelanggan" : "Pengirim"}`}
               </Button>
             </div>
           </form>
@@ -135,7 +166,7 @@ function MasterDataPage() {
               <Input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="Cari pelanggan…"
+                 placeholder={`Cari ${kind}…`}
                 className="pl-9"
               />
             </div>
@@ -143,7 +174,7 @@ function MasterDataPage() {
             <div className="mt-4 space-y-3">
               {filtered.length === 0 && (
                 <div className="rounded-2xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-                  Belum ada pelanggan yang cocok.
+                   Belum ada {kind} yang cocok.
                 </div>
               )}
               {filtered.map((c) => (
@@ -181,8 +212,9 @@ function MasterDataPage() {
                       variant="ghost"
                       size="icon"
                       onClick={() => {
-                        removeCustomer(c.id);
-                        toast.success("Pelanggan dihapus");
+                         if (kind === "pelanggan") removeCustomer(c.id);
+                         else removeSender(c.id);
+                         toast.success("Data dihapus");
                       }}
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
