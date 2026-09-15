@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCustomers } from "@/lib/customers";
+import { useSenders } from "@/lib/senders";
 import { buildSuratJalanPdf, type SlipData } from "@/lib/suratJalanPdf";
 
 export const Route = createFileRoute("/")({
@@ -80,6 +81,7 @@ function isEmptySlip(d: PanelData) {
 
 function GeneratorPage() {
   const { customers } = useCustomers();
+  const { senders } = useSenders();
   const [atas, setAtas] = useState<PanelData>(basePanel);
   const [bawah, setBawah] = useState<PanelData>(basePanel);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -142,6 +144,7 @@ function GeneratorPage() {
             data={atas}
             onChange={setAtas}
             customers={customers}
+            senders={senders}
             action={
               <Button
                 variant="secondary"
@@ -153,7 +156,13 @@ function GeneratorPage() {
               </Button>
             }
           />
-          <PanelForm title="Surat Bawah" data={bawah} onChange={setBawah} customers={customers} />
+          <PanelForm
+            title="Surat Bawah"
+            data={bawah}
+            onChange={setBawah}
+            customers={customers}
+            senders={senders}
+          />
         </div>
 
         <section className="mt-10">
@@ -184,12 +193,14 @@ function PanelForm({
   data,
   onChange,
   customers,
+  senders,
   action,
 }: {
   title: string;
   data: PanelData;
   onChange: (d: PanelData) => void;
   customers: ReturnType<typeof useCustomers>["customers"];
+  senders: ReturnType<typeof useSenders>["senders"];
   action?: React.ReactNode;
 }) {
   const set = (k: keyof PanelData) => (v: string) => onChange({ ...data, [k]: v });
@@ -203,7 +214,7 @@ function PanelForm({
 
       <div className="mt-4 space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Ambil data Penerima dari Master">
+           <Field label="Pilih Pelanggan / Penerima">
             <Select
               value=""
               onValueChange={(id) => {
@@ -231,11 +242,11 @@ function PanelForm({
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Ambil data Pengirim dari Master">
+           <Field label="Pilih Pengirim">
             <Select
               value=""
               onValueChange={(id) => {
-                const c = customers.find((x) => x.id === id);
+                 const c = senders.find((x) => x.id === id);
                 if (c)
                   onChange({
                     ...data,
@@ -247,11 +258,11 @@ function PanelForm({
             >
               <SelectTrigger>
                 <SelectValue
-                  placeholder={customers.length ? "Pilih pengirim…" : "Belum ada master"}
+                   placeholder={senders.length ? "Pilih pengirim…" : "Belum ada pengirim"}
                 />
               </SelectTrigger>
               <SelectContent>
-                {customers.map((c) => (
+                 {senders.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.nama}
                   </SelectItem>
