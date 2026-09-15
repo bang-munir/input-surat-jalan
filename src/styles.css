@@ -180,11 +180,6 @@
   margin: 0;
 }
 
-@page portrait {
-  size: A4 portrait;
-  margin: 0;
-}
-
 @media print {
   body {
     background: #fff;
@@ -201,8 +196,5 @@
   }
   .sheet-a4 {
     box-shadow: none;
-  }
-  .sheet-a4.sheet-portrait {
-    page: portrait;
   }
 }

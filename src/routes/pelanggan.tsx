@@ -184,10 +184,12 @@ function MasterDataPage() {
                 >
                   <div className="min-w-0">
                     <h3 className="truncate font-semibold">{c.nama}</h3>
-                    <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground">
-                      {c.alamat}
-                    </p>
-                    <p className="mt-1 text-sm text-brand">{c.telepon}</p>
+                    {c.alamat && (
+                      <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground">
+                        {c.alamat}
+                      </p>
+                    )}
+                    {c.telepon && <p className="mt-1 text-sm text-brand">{c.telepon}</p>}
                     {c.catatan && (
                       <p className="mt-1 text-xs italic text-muted-foreground">{c.catatan}</p>
                     )}
