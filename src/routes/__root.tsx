@@ -82,12 +82,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         name: "description",
         content:
-          "Aplikasi pembuat surat jalan A4 lanskap (2x A5) dengan master data pelanggan, cetak PDF, dan unduh PNG.",
+          "Aplikasi pembuat surat jalan A4 lanskap dengan master pelanggan dan pengirim, cetak, serta unduh PDF.",
       },
       { property: "og:title", content: "Generator Surat Jalan A4 Lanskap" },
       {
         property: "og:description",
-        content: "Buat surat jalan rapi, siap cetak dan unduh sebagai PNG.",
+        content: "Buat dua surat jalan rapi dalam satu A4 lanskap, siap cetak dan unduh sebagai PDF.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

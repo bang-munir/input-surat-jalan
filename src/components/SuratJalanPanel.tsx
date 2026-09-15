@@ -28,7 +28,7 @@ function Row({
   bold?: boolean;
 }) {
   return (
-    <div className="flex items-start gap-1 text-[8pt] leading-[1.4]">
+    <div className="flex items-start gap-1 text-[7.5pt] leading-[1.35]">
       <span className="shrink-0 whitespace-nowrap" style={{ width: labelWidth }}>
         {label}
       </span>
@@ -43,17 +43,21 @@ function Row({
 /** Satu surat jalan lanskap (297mm x 105mm). */
 export function SuratJalanPanel({ data }: { data: PanelData }) {
   return (
-    <div className="flex h-full flex-col px-[12mm] py-[7mm] text-ink">
-      <div className="grid grid-cols-[1fr_0.9fr_1fr] gap-[6mm]">
+    <div className="relative flex h-full flex-col border border-brand px-[7.5mm] py-[4.5mm] text-ink">
+      <div className="grid grid-cols-[1.15fr_0.9fr_1.05fr] gap-[6mm]">
         {/* Kiri: judul + pengirim */}
         <div className="min-w-0">
-          <h2 className="font-display text-[19pt] font-bold leading-none tracking-tight">
-            SURAT JALAN
-          </h2>
-          <p className="mt-[1.5mm] text-[8pt] tracking-[0.18em] text-brand">
+          <div className="flex items-center gap-[3mm]">
+            <span className="flex gap-[1mm]" aria-hidden="true">
+              <span className="block h-[5mm] w-[2.5mm] skew-x-[-28deg] bg-chart-1" />
+              <span className="block h-[5mm] w-[2.5mm] skew-x-[-28deg] bg-ink" />
+            </span>
+            <h2 className="font-display text-[18pt] font-bold leading-none">SURAT JALAN</h2>
+          </div>
+          <p className="ml-[14mm] mt-[1mm] text-[7.5pt] font-bold tracking-[0.22em] text-brand">
             NO : {data.nomor || "-"}
           </p>
-          <div className="mt-[5mm] space-y-[1.5mm]">
+          <div className="mt-[4mm] space-y-[1.2mm]">
             {has(data.pengirim) && (
               <Row label="Nama Pengirim" value={data.pengirim} bold />
             )}
@@ -72,18 +76,18 @@ export function SuratJalanPanel({ data }: { data: PanelData }) {
         </div>
 
         {/* Kanan: penerima */}
-        <div className="min-w-0 space-y-[1.5mm] border-l border-border pl-[6mm] pt-[2mm]">
+        <div className="min-w-0 space-y-[1.2mm] border-l border-brand/50 pl-[6mm] pt-[2mm]">
           {has(data.kepada) && <Row label="Kepada" value={data.kepada} labelWidth="18mm" bold />}
           {has(data.telepon) && <Row label="No. Telp" value={data.telepon} labelWidth="18mm" bold />}
           {has(data.alamat) && <Row label="Alamat" value={data.alamat} labelWidth="18mm" />}
         </div>
       </div>
 
-      <div className="mt-[4mm] border-t border-ink/25 pt-[2.5mm]">
+      <div className="mt-[3mm] border-t border-brand/45 pt-[2mm]">
         <p className="text-[7.5pt] italic">Kami kirimkan barang-barang tersebut di bawah ini:</p>
       </div>
 
-      <table className="mt-[1.5mm] w-full table-fixed border-collapse text-[8pt]">
+      <table className="mt-[1.2mm] w-full table-fixed border-collapse text-[7.5pt]">
         <thead>
           <tr>
             <th className="w-[48mm] border border-brand bg-brand-soft px-[3mm] py-[1.5mm] text-center text-[7pt] font-bold tracking-[0.14em]">
@@ -96,7 +100,7 @@ export function SuratJalanPanel({ data }: { data: PanelData }) {
         </thead>
         <tbody>
           <tr>
-            <td className="h-[13mm] border border-brand px-[3mm] py-[1.5mm] text-center align-top font-bold">
+            <td className="h-[15mm] border border-brand px-[3mm] py-[2.5mm] text-center align-top font-bold">
               {data.banyaknya}
             </td>
             <td className="border border-brand px-[3mm] py-[1.5mm] align-top">
@@ -106,21 +110,21 @@ export function SuratJalanPanel({ data }: { data: PanelData }) {
         </tbody>
       </table>
 
-      <div className="mt-[6mm] grid grid-cols-2 text-center text-[7pt]">
+      <div className="mt-[4mm] grid grid-cols-2 text-center text-[6.5pt]">
         <div>
           <p className="font-bold tracking-[0.14em] text-brand">PENERIMA,</p>
-          <p className="mt-[15mm] text-[8pt]">(&nbsp;..................................&nbsp;)</p>
+          <p className="mt-[10mm] text-[7.5pt]">(&nbsp;..................................&nbsp;)</p>
         </div>
         <div>
           <p className="font-bold tracking-[0.14em] text-brand">HORMAT KAMI,</p>
-          <p className="mt-[15mm] text-[8pt] font-bold">
+          <p className="mt-[10mm] text-[7.5pt] font-bold">
             ( {data.pengirim || "................."} )
           </p>
         </div>
       </div>
 
       {has(data.keterangan) && (
-        <div className="mt-auto">
+        <div className="mt-auto border-t border-brand/35 pt-[1mm]">
           <p className="text-[6.5pt] font-bold tracking-[0.16em] text-brand">
             KETERANGAN PENGIRIMAN
           </p>
