@@ -1,5 +1,11 @@
 import type { jsPDF } from "jspdf";
 
+export type SlipItem = {
+  quantity: string;
+  name: string;
+  description: string;
+};
+
 export type SlipData = {
   nomor: string;
   tanggal: string; // sudah diformat, mis. "15 September 2026"
@@ -9,9 +15,7 @@ export type SlipData = {
   kepada: string;
   telepon: string;
   alamat: string;
-  banyaknya: string;
-  namaBarang: string;
-  keterangan: string;
+  items: SlipItem[];
 };
 
 const INK = [26, 42, 74] as [number, number, number];
@@ -30,34 +34,31 @@ function rows(list: FieldRow[]) {
 }
 
 /**
- * Menggambar satu surat jalan lanskap (297mm x 105mm) pada posisi offsetY.
+ * Menggambar satu surat jalan A5 lanskap (210mm x 148.5mm) pada posisi offsetY.
  * Semua teks digambar sebagai teks vektor agar tajam saat dicetak.
  */
 export function drawSlip(pdf: jsPDF, data: SlipData, offsetY: number) {
-  const W = 297;
-  const H = 105;
-  const ml = 11;
-  const mr = W - 7;
-  const y = (v: number) => offsetY + v;
+  const W = 210;
+  const H = 148.5;
+  const ml = 10;
+  const mr = W - 5;
+  const topPad = 4;
+  const y = (v: number) => offsetY + topPad + v;
 
   pdf.setTextColor(...INK);
 
-  // Bingkai dan aksen identitas seperti desain acuan.
+  // Bingkai identitas seperti desain acuan.
   pdf.setDrawColor(...BRAND);
   pdf.setLineWidth(0.28);
-  pdf.rect(4, y(3), W - 8, H - 6, "D");
-  pdf.setFillColor(242, 125, 35);
-  pdf.triangle(8, y(8), 12, y(8), 8.5, y(13.5), "F");
-  pdf.setFillColor(...INK);
-  pdf.triangle(13, y(8), 17, y(8), 13.5, y(13.5), "F");
+  pdf.rect(3, y(5), W - 6, H - 10, "D");
 
   pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(20);
-  pdf.text("SURAT JALAN", 20, y(13));
+  pdf.setFontSize(18);
+  pdf.text("SURAT JALAN", 19, y(15));
 
-  pdf.setFontSize(8.5);
+  pdf.setFontSize(8);
   pdf.setTextColor(...BRAND);
-  pdf.text(`N O  :   ${data.nomor || "-"}`, 22, y(19));
+  pdf.text(`N O  :   ${data.nomor || "-"}`, 21, y(21));
   pdf.setTextColor(...INK);
 
   const pengirimRows = rows([
@@ -66,37 +67,37 @@ export function drawSlip(pdf: jsPDF, data: SlipData, offsetY: number) {
     { label: "Alamat", value: data.alamatPengirim },
   ]);
 
-  let py = y(27);
-  pdf.setFontSize(7.5);
+  let py = y(28);
+  pdf.setFontSize(7);
   for (const r of pengirimRows) {
     pdf.setFont("helvetica", "normal");
     pdf.text(r.label, ml, py);
-    pdf.text(":", ml + 26, py);
-    const lines = pdf.splitTextToSize(r.value, 55) as string[];
+    pdf.text(":", ml + 24, py);
+    const lines = pdf.splitTextToSize(r.value, 40) as string[];
     pdf.setFont("helvetica", "bold");
-    pdf.text(lines.slice(0, 2), ml + 29, py);
+    pdf.text(lines.slice(0, 2), ml + 27, py);
     pdf.setDrawColor(...LINE);
     pdf.setLineWidth(0.12);
-    pdf.line(ml + 29, py + 1.4, ml + 84, py + 1.4);
-    py += 5 + Math.min(lines.length - 1, 1) * 3;
+    pdf.line(ml + 27, py + 1.4, ml + 67, py + 1.4);
+    py += 4.5 + Math.min(lines.length - 1, 1) * 2.5;
   }
 
-  const cx = 118;
-  pdf.setFontSize(7.5);
+  const cx = 90;
+  pdf.setFontSize(7);
   if (has(data.tanggal)) {
     pdf.setFont("helvetica", "normal");
-    pdf.text("Tanggal", cx, y(11));
-    pdf.text(":", cx + 23, y(11));
+    pdf.text("Tanggal", cx, y(13));
+    pdf.text(":", cx + 20, y(13));
     pdf.setFont("helvetica", "bold");
-    pdf.text(data.tanggal, cx + 27, y(11));
+    pdf.text(data.tanggal, cx + 24, y(13));
     pdf.setDrawColor(...LINE);
-    pdf.line(cx + 27, y(12.4), cx + 70, y(12.4));
+    pdf.line(cx + 24, y(14.4), cx + 44, y(14.4));
   }
 
-  const rx = 202;
+  const rx = 145;
   pdf.setDrawColor(...LINE);
   pdf.setLineWidth(0.2);
-  pdf.line(rx - 9, y(7), rx - 9, y(34));
+  pdf.line(rx - 7, y(9), rx - 7, y(35));
 
   const penerimaRows = rows([
     { label: "Kepada", value: data.kepada },
@@ -104,19 +105,19 @@ export function drawSlip(pdf: jsPDF, data: SlipData, offsetY: number) {
     { label: "Alamat", value: data.alamat },
   ]);
 
-  let ry = y(10);
+  let ry = y(12);
   for (const r of penerimaRows) {
     pdf.setFont("helvetica", "normal");
     pdf.text(r.label, rx, ry);
-    pdf.text(":", rx + 22, ry);
-    const lines = pdf.splitTextToSize(r.value, mr - (rx + 26)) as string[];
+    pdf.text(":", rx + 20, ry);
+    const lines = pdf.splitTextToSize(r.value, mr - (rx + 24)) as string[];
     pdf.setFont("helvetica", "bold");
-    pdf.text(lines.slice(0, 3), rx + 26, ry);
+    pdf.text(lines.slice(0, 3), rx + 24, ry);
     if (r.label !== "Alamat") {
       pdf.setDrawColor(...LINE);
-      pdf.line(rx + 26, ry + 1.4, mr, ry + 1.4);
+      pdf.line(rx + 24, ry + 1.4, mr, ry + 1.4);
     }
-    ry += 5 + Math.min(lines.length - 1, 2) * 3;
+    ry += 4.5 + Math.min(lines.length - 1, 2) * 2.5;
   }
 
   const headBottom = y(39);
@@ -125,13 +126,16 @@ export function drawSlip(pdf: jsPDF, data: SlipData, offsetY: number) {
   pdf.line(ml, headBottom, mr, headBottom);
 
   pdf.setFont("helvetica", "italic");
-  pdf.setFontSize(7.3);
+  pdf.setFontSize(7);
   pdf.text("Kami kirimkan barang-barang tersebut di bawah ini:", ml, y(44));
 
+  const safeItems =
+    data.items.length > 0 ? data.items : [{ quantity: "", name: "", description: "" }];
   const tTop = y(47);
   const tHead = 7;
-  const tBody = 16;
-  const colW = 52;
+  const rowH = 9;
+  const tBody = safeItems.length * rowH;
+  const colW = 42;
 
   pdf.setDrawColor(...BRAND);
   pdf.setLineWidth(0.25);
@@ -141,78 +145,97 @@ export function drawSlip(pdf: jsPDF, data: SlipData, offsetY: number) {
   pdf.line(ml + colW, tTop, ml + colW, tTop + tHead + tBody);
 
   pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(7.2);
+  pdf.setFontSize(7);
   pdf.setTextColor(...INK);
   pdf.text("BANYAKNYA", ml + colW / 2, tTop + 4.8, { align: "center" });
   pdf.text("NAMA BARANG", ml + colW + 5, tTop + 4.8);
 
-  pdf.setFontSize(8.5);
-  pdf.text(data.banyaknya || "", ml + colW / 2, tTop + tHead + 7, { align: "center" });
-  pdf.setFont("helvetica", "normal");
-  const barang = pdf.splitTextToSize(data.namaBarang || "", mr - ml - colW - 10) as string[];
-  pdf.text(barang.slice(0, 3), ml + colW + 5, tTop + tHead + 6);
+  for (let i = 0; i < safeItems.length; i++) {
+    const item = safeItems[i];
+    const rowY = tTop + tHead + i * rowH;
+    if (i > 0) {
+      pdf.setDrawColor(...LINE);
+      pdf.setLineWidth(0.15);
+      pdf.line(ml, rowY, mr, rowY);
+    }
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(item.quantity || "", ml + colW / 2, rowY + 5, { align: "center" });
+    pdf.setFont("helvetica", "normal");
+    const barangLines = pdf.splitTextToSize(item.name || "", mr - ml - colW - 10) as string[];
+    pdf.text(barangLines.slice(0, 2), ml + colW + 5, rowY + 4);
+    if (has(item.description)) {
+      pdf.setFont("helvetica", "italic");
+      pdf.setFontSize(6.5);
+      const descLines = pdf.splitTextToSize(item.description, mr - ml - colW - 10) as string[];
+      pdf.text(descLines.slice(0, 1), ml + colW + 5, rowY + 7.5);
+    }
+  }
 
-  const sTop = y(75);
+  const sTop = y(100);
   pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(7.5);
+  pdf.setFontSize(7);
   pdf.setTextColor(...BRAND);
-  pdf.text("PENERIMA,", ml + 55, sTop, { align: "center" });
-  pdf.text("HORMAT KAMI,", mr - 55, sTop, { align: "center" });
+  pdf.text("PENERIMA,", ml + 50, sTop, { align: "center" });
+  pdf.text("HORMAT KAMI,", mr - 50, sTop, { align: "center" });
 
-  const sName = y(88);
+  const sName = y(112);
   pdf.setTextColor(...INK);
   pdf.setFont("helvetica", "normal");
-  pdf.text("(  ..................................  )", ml + 55, sName, { align: "center" });
+  pdf.text("(  ..................................  )", ml + 50, sName, { align: "center" });
   pdf.setFont("helvetica", "bold");
-  pdf.text(`(  ${data.pengirim || "................."}  )`, mr - 55, sName, { align: "center" });
+  pdf.text(`(  ${data.pengirim || "................."}  )`, mr - 50, sName, { align: "center" });
 
   pdf.setDrawColor(...LINE);
   pdf.setLineWidth(0.2);
-  pdf.line(ml, y(92), mr, y(92));
+  pdf.line(ml, y(118), mr, y(118));
 
-  if (has(data.keterangan)) {
-    const kY = y(96);
+  const itemsWithDesc = safeItems.filter((item) => has(item.description));
+  if (itemsWithDesc.length > 0) {
+    const kY = y(122);
     pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(6.5);
+    pdf.setFontSize(6);
     pdf.setTextColor(...BRAND);
     pdf.text("KETERANGAN PENGIRIMAN", ml, kY);
-    pdf.setFont("helvetica", "bolditalic");
-    pdf.setFontSize(8);
-    pdf.setTextColor(...INK);
-    pdf.text(`"${data.keterangan}"`, ml, kY + 3.5);
+    let descY = kY + 3.5;
+    for (const item of itemsWithDesc) {
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(7);
+      pdf.setTextColor(...INK);
+      const itemName = item.name || "-";
+      pdf.text(itemName, ml, descY);
+      pdf.setFont("helvetica", "bolditalic");
+      pdf.setFontSize(7.5);
+      pdf.text(' "' + item.description + '"', ml + pdf.getTextWidth(itemName) + 1, descY);
+      descY += 4;
+    }
   }
-
-  // Aksen penutup kanan bawah.
-  pdf.setFillColor(...INK);
-  pdf.triangle(mr - 10, y(94), mr - 4, y(94), mr - 9, y(101), "F");
-  pdf.setFillColor(135, 169, 211);
-  pdf.triangle(mr - 4, y(94), mr + 2, y(94), mr - 3, y(101), "F");
 }
 
-/** Membuat PDF A4 lanskap satu halaman berisi dua surat jalan lanskap. */
+/** Membuat PDF A4 potret satu halaman berisi dua surat jalan A5 lanskap. */
 export async function buildSuratJalanPdf(atas: SlipData, bawah: SlipData | null) {
   const { jsPDF: JsPDF } = await import("jspdf");
   const pdf = new JsPDF({
-    orientation: "landscape",
+    orientation: "portrait",
     unit: "mm",
     format: "a4",
     compress: true,
   });
 
   drawSlip(pdf, atas, 0);
-  if (bawah) drawSlip(pdf, bawah, 105);
+  if (bawah) drawSlip(pdf, bawah, 148.5);
 
   pdf.setProperties({
     title: `Surat Jalan ${atas.nomor || ""}`.trim(),
-    subject: "Surat Jalan A4 landscape, dua lembar",
+    subject: "Surat Jalan A4 potret, dua lembar A5 lanskap",
     creator: "Generator Surat Jalan",
   });
 
-  // garis potong di tengah
+  // garis potong di tengah (antara A5 atas dan A5 bawah)
   pdf.setDrawColor(140, 150, 170);
   pdf.setLineWidth(0.2);
   pdf.setLineDashPattern([2, 2], 0);
-  pdf.line(0, 105, 297, 105);
+  pdf.line(0, 148.5, 210, 148.5);
   pdf.setLineDashPattern([], 0);
 
   return pdf;

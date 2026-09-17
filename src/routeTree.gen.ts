@@ -10,11 +10,29 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuditLocalstorageRouteImport } from './routes/audit-localstorage'
+import { Route as LaporanRouteImport } from './routes/laporan'
+import { Route as NotaRouteImport } from './routes/nota'
 import { Route as PelangganRouteImport } from './routes/pelanggan'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuditLocalstorageRoute = AuditLocalstorageRouteImport.update({
+  id: '/audit-localstorage',
+  path: '/audit-localstorage',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LaporanRoute = LaporanRouteImport.update({
+  id: '/laporan',
+  path: '/laporan',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotaRoute = NotaRouteImport.update({
+  id: '/nota',
+  path: '/nota',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PelangganRoute = PelangganRouteImport.update({
@@ -25,27 +43,45 @@ const PelangganRoute = PelangganRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/audit-localstorage': typeof AuditLocalstorageRoute
+  '/laporan': typeof LaporanRoute
+  '/nota': typeof NotaRoute
   '/pelanggan': typeof PelangganRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/audit-localstorage': typeof AuditLocalstorageRoute
+  '/laporan': typeof LaporanRoute
+  '/nota': typeof NotaRoute
   '/pelanggan': typeof PelangganRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/audit-localstorage': typeof AuditLocalstorageRoute
+  '/laporan': typeof LaporanRoute
+  '/nota': typeof NotaRoute
   '/pelanggan': typeof PelangganRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/pelanggan'
+  fullPaths: '/' | '/audit-localstorage' | '/laporan' | '/nota' | '/pelanggan'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/pelanggan'
-  id: '__root__' | '/' | '/pelanggan'
+  to: '/' | '/audit-localstorage' | '/laporan' | '/nota' | '/pelanggan'
+  id:
+    | '__root__'
+    | '/'
+    | '/audit-localstorage'
+    | '/laporan'
+    | '/nota'
+    | '/pelanggan'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuditLocalstorageRoute: typeof AuditLocalstorageRoute
+  LaporanRoute: typeof LaporanRoute
+  NotaRoute: typeof NotaRoute
   PelangganRoute: typeof PelangganRoute
 }
 
@@ -56,6 +92,27 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/audit-localstorage': {
+      id: '/audit-localstorage'
+      path: '/audit-localstorage'
+      fullPath: '/audit-localstorage'
+      preLoaderRoute: typeof AuditLocalstorageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/laporan': {
+      id: '/laporan'
+      path: '/laporan'
+      fullPath: '/laporan'
+      preLoaderRoute: typeof LaporanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/nota': {
+      id: '/nota'
+      path: '/nota'
+      fullPath: '/nota'
+      preLoaderRoute: typeof NotaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pelanggan': {
@@ -70,6 +127,9 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuditLocalstorageRoute: AuditLocalstorageRoute,
+  LaporanRoute: LaporanRoute,
+  NotaRoute: NotaRoute,
   PelangganRoute: PelangganRoute,
 }
 export const routeTree = rootRouteImport

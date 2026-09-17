@@ -87,7 +87,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:title", content: "Generator Surat Jalan A4 Lanskap" },
       {
         property: "og:description",
-        content: "Buat dua surat jalan rapi dalam satu A4 lanskap, siap cetak dan unduh sebagai PDF.",
+        content:
+          "Buat dua surat jalan rapi dalam satu A4 lanskap, siap cetak dan unduh sebagai PDF.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

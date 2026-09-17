@@ -1,12 +1,16 @@
+export type PanelItem = {
+  quantity: string;
+  name: string;
+  description: string;
+};
+
 export type PanelData = {
   nomor: string;
   tanggal: string;
   kepada: string;
   alamat: string;
   telepon: string;
-  banyaknya: string;
-  namaBarang: string;
-  keterangan: string;
+  items: PanelItem[];
   pengirim: string;
   teleponPengirim: string;
   alamatPengirim: string;
@@ -40,95 +44,105 @@ function Row({
   );
 }
 
-/** Satu surat jalan lanskap (297mm x 105mm). */
+/** Satu surat jalan A5 lanskap (210mm x 148.5mm). */
 export function SuratJalanPanel({ data }: { data: PanelData }) {
   return (
-    <div className="relative flex h-full flex-col border border-brand px-[7.5mm] py-[4.5mm] text-ink">
-      <div className="grid grid-cols-[1.15fr_0.9fr_1.05fr] gap-[6mm]">
+    <div className="relative flex h-full flex-col border-[1.5pt] border-brand px-[7mm] py-[7mm] text-ink">
+      <div className="grid grid-cols-[1.1fr_0.8fr_1.1fr] gap-[5mm]">
         {/* Kiri: judul + pengirim */}
         <div className="min-w-0">
-          <div className="flex items-center gap-[3mm]">
-            <span className="flex gap-[1mm]" aria-hidden="true">
-              <span className="block h-[5mm] w-[2.5mm] skew-x-[-28deg] bg-chart-1" />
-              <span className="block h-[5mm] w-[2.5mm] skew-x-[-28deg] bg-ink" />
-            </span>
-            <h2 className="font-display text-[18pt] font-bold leading-none">SURAT JALAN</h2>
+          <div className="flex items-center gap-[2.5mm]">
+            <h2 className="font-display text-[15pt] font-bold leading-none">SURAT JALAN</h2>
           </div>
-          <p className="ml-[14mm] mt-[1mm] text-[7.5pt] font-bold tracking-[0.22em] text-brand">
+          <p className="ml-[12mm] mt-[1mm] text-[7pt] font-bold tracking-[0.22em] text-brand">
             NO : {data.nomor || "-"}
           </p>
-          <div className="mt-[4mm] space-y-[1.2mm]">
-            {has(data.pengirim) && (
-              <Row label="Nama Pengirim" value={data.pengirim} bold />
-            )}
+          <div className="mt-[3mm] space-y-[1mm]">
+            {has(data.pengirim) && <Row label="Nama Pengirim" value={data.pengirim} bold />}
             {has(data.teleponPengirim) && (
               <Row label="No. Telp" value={data.teleponPengirim} bold />
             )}
-            {has(data.alamatPengirim) && (
-              <Row label="Alamat" value={data.alamatPengirim} />
-            )}
+            {has(data.alamatPengirim) && <Row label="Alamat" value={data.alamatPengirim} />}
           </div>
         </div>
 
         {/* Tengah: tanggal */}
         <div className="min-w-0 pt-[2mm]">
-          {has(data.tanggal) && <Row label="Tanggal" value={data.tanggal} labelWidth="18mm" bold />}
+          {has(data.tanggal) && <Row label="Tanggal" value={data.tanggal} labelWidth="16mm" bold />}
         </div>
 
         {/* Kanan: penerima */}
-        <div className="min-w-0 space-y-[1.2mm] border-l border-brand/50 pl-[6mm] pt-[2mm]">
-          {has(data.kepada) && <Row label="Kepada" value={data.kepada} labelWidth="18mm" bold />}
-          {has(data.telepon) && <Row label="No. Telp" value={data.telepon} labelWidth="18mm" bold />}
-          {has(data.alamat) && <Row label="Alamat" value={data.alamat} labelWidth="18mm" />}
+        <div className="min-w-0 space-y-[1mm] border-l border-brand/50 pl-[5mm] pt-[2mm]">
+          {has(data.kepada) && <Row label="Kepada" value={data.kepada} labelWidth="16mm" bold />}
+          {has(data.telepon) && (
+            <Row label="No. Telp" value={data.telepon} labelWidth="16mm" bold />
+          )}
+          {has(data.alamat) && <Row label="Alamat" value={data.alamat} labelWidth="16mm" />}
         </div>
       </div>
 
-      <div className="mt-[3mm] border-t border-brand/45 pt-[2mm]">
-        <p className="text-[7.5pt] italic">Kami kirimkan barang-barang tersebut di bawah ini:</p>
+      <div className="mt-[2.5mm] border-t border-brand/45 pt-[1.5mm]">
+        <p className="text-[7pt] italic">Kami kirimkan barang-barang tersebut di bawah ini:</p>
       </div>
 
-      <table className="mt-[1.2mm] w-full table-fixed border-collapse text-[7.5pt]">
+      <table className="mt-[1mm] w-full table-fixed border-collapse text-[7pt]">
         <thead>
           <tr>
-            <th className="w-[48mm] border border-brand bg-brand-soft px-[3mm] py-[1.5mm] text-center text-[7pt] font-bold tracking-[0.14em]">
+            <th className="w-[40mm] border border-brand bg-brand-soft px-[2.5mm] py-[1.2mm] text-center text-[6.5pt] font-bold tracking-[0.14em]">
               BANYAKNYA
             </th>
-            <th className="border border-brand bg-brand-soft px-[3mm] py-[1.5mm] text-left text-[7pt] font-bold tracking-[0.14em]">
+            <th className="border border-brand bg-brand-soft px-[2.5mm] py-[1.2mm] text-left text-[6.5pt] font-bold tracking-[0.14em]">
               NAMA BARANG
             </th>
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td className="h-[15mm] border border-brand px-[3mm] py-[2.5mm] text-center align-top font-bold">
-              {data.banyaknya}
-            </td>
-            <td className="border border-brand px-[3mm] py-[1.5mm] align-top">
-              {data.namaBarang}
-            </td>
-          </tr>
+          {(data.items.length > 0 ? data.items : [{ quantity: "", name: "", description: "" }]).map(
+            (item, i) => (
+              <tr key={i}>
+                <td className="h-[10mm] border border-brand px-[2.5mm] py-[2mm] text-center align-top font-bold">
+                  {item.quantity}
+                </td>
+                <td className="border border-brand px-[2.5mm] py-[1.2mm] align-top">
+                  <span>{item.name}</span>
+                  {has(item.description) && (
+                    <span className="block text-[6pt] italic text-muted-foreground">
+                      {item.description}
+                    </span>
+                  )}
+                </td>
+              </tr>
+            ),
+          )}
         </tbody>
       </table>
 
-      <div className="mt-[4mm] grid grid-cols-2 text-center text-[6.5pt]">
+      <div className="mt-[3mm] grid grid-cols-2 text-center text-[6pt]">
         <div>
           <p className="font-bold tracking-[0.14em] text-brand">PENERIMA,</p>
-          <p className="mt-[10mm] text-[7.5pt]">(&nbsp;..................................&nbsp;)</p>
+          <p className="mt-[8mm] text-[7pt]">(&nbsp;..................................&nbsp;)</p>
         </div>
         <div>
           <p className="font-bold tracking-[0.14em] text-brand">HORMAT KAMI,</p>
-          <p className="mt-[10mm] text-[7.5pt] font-bold">
+          <p className="mt-[8mm] text-[7pt] font-bold">
             ( {data.pengirim || "................."} )
           </p>
         </div>
       </div>
 
-      {has(data.keterangan) && (
+      {data.items.some((item) => has(item.description)) && (
         <div className="mt-auto border-t border-brand/35 pt-[1mm]">
-          <p className="text-[6.5pt] font-bold tracking-[0.16em] text-brand">
-            KETERANGAN PENGIRIMAN
-          </p>
-          <p className="text-[8pt] font-bold italic">"{data.keterangan}"</p>
+          <p className="text-[6pt] font-bold tracking-[0.16em] text-brand">KETERANGAN PENGIRIMAN</p>
+          <div className="mt-[0.5mm] space-y-[0.5mm]">
+            {data.items
+              .filter((item) => has(item.description))
+              .map((item, i) => (
+                <p key={i} className="text-[6.5pt]">
+                  <span className="font-bold">{item.name}</span>
+                  <span className="italic"> &quot;{item.description}&quot;</span>
+                </p>
+              ))}
+          </div>
         </div>
       )}
     </div>

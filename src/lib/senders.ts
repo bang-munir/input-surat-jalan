@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { fetchSenders, addSender, updateSender, deleteSender } from "./senders.server";
 
 export type Sender = {
   id: string;
@@ -8,51 +9,41 @@ export type Sender = {
   catatan?: string;
 };
 
-const KEY = "surat-jalan:senders";
-
-function read(): Sender[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as Sender[]) : [];
-  } catch {
-    return [];
-  }
-}
-
 export function useSenders() {
   const [senders, setSenders] = useState<Sender[]>([]);
 
-  useEffect(() => setSenders(read()), []);
-
-  const persist = useCallback((next: Sender[]) => {
-    setSenders(next);
-    try {
-      window.localStorage.setItem(KEY, JSON.stringify(next));
-    } catch {
-      /* penyimpanan browser penuh atau diblokir */
-    }
+  const load = useCallback(async () => {
+    const data = await fetchSenders();
+    setSenders(data);
   }, []);
 
-  const addSender = useCallback(
-    (data: Omit<Sender, "id">) => {
-      const item = { ...data, id: crypto.randomUUID() };
-      persist([...read(), item]);
-      return item;
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const add = useCallback(
+    async (data: Omit<Sender, "id">) => {
+      await addSender({ data });
+      await load();
     },
-    [persist],
+    [load],
   );
 
-  const updateSender = useCallback(
-    (id: string, data: Omit<Sender, "id">) =>
-      persist(read().map((sender) => (sender.id === id ? { ...data, id } : sender))),
-    [persist],
+  const update = useCallback(
+    async (id: string, data: Omit<Sender, "id">) => {
+      await updateSender({ data: { id, ...data } });
+      await load();
+    },
+    [load],
   );
 
-  const removeSender = useCallback(
-    (id: string) => persist(read().filter((sender) => sender.id !== id)),
-    [persist],
+  const remove = useCallback(
+    async (id: string) => {
+      await deleteSender({ data: { id } });
+      await load();
+    },
+    [load],
   );
 
-  return { senders, addSender, updateSender, removeSender };
+  return { senders, addSender: add, updateSender: update, removeSender: remove };
 }

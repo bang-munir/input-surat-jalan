@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Copy, Download, Printer } from "lucide-react";
+import { Copy, Download, Printer, Plus, Trash2, Save } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppNav } from "@/components/AppNav";
 import { SheetPreview } from "@/components/SheetPreview";
-import { SuratJalanPanel, type PanelData } from "@/components/SuratJalanPanel";
+import { SuratJalanPanel, type PanelData, type PanelItem } from "@/components/SuratJalanPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { useCustomers } from "@/lib/customers";
 import { useSenders } from "@/lib/senders";
+import { useSuratJalanRecords } from "@/lib/suratJalanStorage";
 import { buildSuratJalanPdf, type SlipData } from "@/lib/suratJalanPdf";
 
 export const Route = createFileRoute("/")({
@@ -58,15 +59,15 @@ function generateNomor() {
   return `SJ-${digits}`;
 }
 
+const emptyItem: PanelItem = { quantity: "", name: "", description: "" };
+
 const basePanel: PanelData = {
   nomor: "",
   tanggal: "",
   kepada: "",
   alamat: "",
   telepon: "",
-  banyaknya: "",
-  namaBarang: "",
-  keterangan: "",
+  items: [{ ...emptyItem }],
   pengirim: "",
   teleponPengirim: "",
   alamatPengirim: "",
@@ -74,14 +75,14 @@ const basePanel: PanelData = {
 
 /** Surat dianggap kosong bila tidak ada isi selain nomor & tanggal otomatis. */
 function isEmptySlip(d: PanelData) {
-  return ![d.kepada, d.pengirim, d.namaBarang, d.banyaknya, d.alamat, d.telepon].some((v) =>
-    v.trim(),
-  );
+  const hasItems = d.items.some((item) => item.name.trim() || item.quantity.trim());
+  return ![d.kepada, d.pengirim, d.alamat, d.telepon].some((v) => v.trim()) && !hasItems;
 }
 
 function GeneratorPage() {
   const { customers } = useCustomers();
   const { senders } = useSenders();
+  const { addRecord } = useSuratJalanRecords();
   const [atas, setAtas] = useState<PanelData>(basePanel);
   const [bawah, setBawah] = useState<PanelData>(basePanel);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -114,31 +115,74 @@ function GeneratorPage() {
     }
   };
 
+  const saveSuratJalan = () => {
+    if (isEmptySlip(atas) && bawahKosong) {
+      toast.error("Tidak ada data surat jalan yang tersimpan");
+      return;
+    }
+    if (!isEmptySlip(atas)) {
+      addRecord({
+        nomor: atas.nomor,
+        tanggal: formatTanggal(atas.tanggal),
+        pengirim: atas.pengirim,
+        teleponPengirim: atas.teleponPengirim,
+        alamatPengirim: atas.alamatPengirim,
+        kepada: atas.kepada,
+        telepon: atas.telepon,
+        alamat: atas.alamat,
+        items: atas.items,
+      });
+    }
+    if (!bawahKosong) {
+      addRecord({
+        nomor: bawah.nomor,
+        tanggal: formatTanggal(bawah.tanggal),
+        pengirim: bawah.pengirim,
+        teleponPengirim: bawah.teleponPengirim,
+        alamatPengirim: bawah.alamatPengirim,
+        kepada: bawah.kepada,
+        telepon: bawah.telepon,
+        alamat: bawah.alamat,
+        items: bawah.items,
+      });
+    }
+    toast.success("Surat jalan berhasil disimpan");
+  };
+
   return (
-    <div className="min-h-screen overflow-x-hidden bg-background font-sans">
+    <div className="min-h-screen overflow-x-hidden bg-background font-sans pb-20 sm:pb-0">
       <AppNav />
 
-      <main className="mx-auto max-w-7xl px-4 py-8">
-        <div className="no-print mb-8 flex flex-wrap items-end justify-between gap-4">
+      <main className="mx-auto max-w-7xl px-3 py-6 sm:px-4 sm:py-8">
+        <div className="no-print mb-6 flex flex-col gap-3 sm:mb-8 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
           <div className="min-w-0">
-            <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
+            <h1 className="font-display text-xl font-bold tracking-tight sm:text-2xl md:text-3xl">
               Generator Surat Jalan
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
               Satu halaman A4 lanskap berisi dua surat jalan lanskap, siap potong.
             </p>
           </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
-            <Button variant="outline" onClick={() => window.print()}>
-              <Printer className="h-4 w-4" /> Cetak
+          <div className="grid grid-cols-3 gap-2 sm:flex sm:shrink-0 sm:gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.print()}
+              className="justify-center"
+            >
+              <Printer className="h-4 w-4" /> <span className="ml-1 hidden xs:inline">Cetak</span>
             </Button>
-            <Button onClick={downloadPdf} disabled={busy}>
-              <Download className="h-4 w-4" /> {busy ? "Memproses…" : "Download PDF"}
+            <Button variant="outline" size="sm" onClick={saveSuratJalan} className="justify-center">
+              <Save className="h-4 w-4" /> <span className="ml-1 hidden xs:inline">Simpan</span>
+            </Button>
+            <Button size="sm" onClick={downloadPdf} disabled={busy} className="justify-center">
+              <Download className="h-4 w-4" />{" "}
+              <span className="ml-1">{busy ? "…" : "Download"}</span>
             </Button>
           </div>
         </div>
 
-        <div className="no-print grid gap-6 lg:grid-cols-2">
+        <div className="no-print grid gap-4 sm:gap-6 lg:grid-cols-2">
           <PanelForm
             title="Surat Atas"
             data={atas}
@@ -165,9 +209,9 @@ function GeneratorPage() {
           />
         </div>
 
-        <section className="mt-10">
-          <div className="no-print mb-3 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-display text-sm font-semibold tracking-[0.2em] text-muted-foreground">
+        <section className="mt-8 sm:mt-10">
+          <div className="no-print mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+            <h2 className="font-display text-xs font-semibold tracking-[0.2em] text-muted-foreground sm:text-sm">
               PRATINJAU A4 LANSKAP
             </h2>
             {bawahKosong && (
@@ -176,7 +220,7 @@ function GeneratorPage() {
               </p>
             )}
           </div>
-          <div className="max-w-full overflow-x-auto rounded-2xl bg-paper-tint p-2 sm:p-4">
+          <div className="overflow-x-auto rounded-2xl bg-paper-tint p-2 sm:p-4">
             <SheetPreview sheetRef={sheetRef}>
               <SuratJalanPanel data={renderAtas} />
               <SuratJalanPanel data={renderBawah} />
@@ -205,16 +249,32 @@ function PanelForm({
 }) {
   const set = (k: keyof PanelData) => (v: string) => onChange({ ...data, [k]: v });
 
+  const setItem = (index: number, field: keyof PanelItem, value: string) => {
+    const items = [...data.items];
+    items[index] = { ...items[index], [field]: value };
+    onChange({ ...data, items });
+  };
+
+  const addItem = () => {
+    onChange({ ...data, items: [...data.items, { ...emptyItem }] });
+  };
+
+  const removeItem = (index: number) => {
+    if (data.items.length <= 1) return;
+    const items = data.items.filter((_, i) => i !== index);
+    onChange({ ...data, items });
+  };
+
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-        <h3 className="truncate font-display text-base font-bold tracking-wide">{title}</h3>
+    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="min-w-0 truncate font-display text-base font-bold tracking-wide">{title}</h3>
         {action}
       </div>
 
       <div className="mt-4 space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
-           <Field label="Pilih Pelanggan / Penerima">
+          <Field label="Pilih Pelanggan / Penerima">
             <Select
               value=""
               onValueChange={(id) => {
@@ -242,11 +302,11 @@ function PanelForm({
               </SelectContent>
             </Select>
           </Field>
-           <Field label="Pilih Pengirim">
+          <Field label="Pilih Pengirim">
             <Select
               value=""
               onValueChange={(id) => {
-                 const c = senders.find((x) => x.id === id);
+                const c = senders.find((x) => x.id === id);
                 if (c)
                   onChange({
                     ...data,
@@ -258,11 +318,11 @@ function PanelForm({
             >
               <SelectTrigger>
                 <SelectValue
-                   placeholder={senders.length ? "Pilih pengirim…" : "Belum ada pengirim"}
+                  placeholder={senders.length ? "Pilih pengirim…" : "Belum ada pengirim"}
                 />
               </SelectTrigger>
               <SelectContent>
-                 {senders.map((c) => (
+                {senders.map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.nama}
                   </SelectItem>
@@ -314,26 +374,54 @@ function PanelForm({
           <Textarea rows={2} value={data.alamat} onChange={(e) => set("alamat")(e.target.value)} />
         </Field>
 
-        <div className="grid gap-4 sm:grid-cols-[110px_minmax(0,1fr)]">
-          <Field label="Banyaknya">
-            <Input
-              value={data.banyaknya}
-              placeholder="3 BAL"
-              onChange={(e) => set("banyaknya")(e.target.value)}
-            />
-          </Field>
-          <Field label="Nama Barang">
-            <Input value={data.namaBarang} onChange={(e) => set("namaBarang")(e.target.value)} />
-          </Field>
+        <div className="space-y-3">
+          <Label className="text-xs font-medium text-muted-foreground">Barang</Label>
+          {data.items.map((item, index) => (
+            <div key={index} className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-muted-foreground">
+                  Barang {index + 1}
+                </span>
+                {data.items.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-destructive hover:text-destructive"
+                    onClick={() => removeItem(index)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
+              </div>
+              <div className="grid gap-2 grid-cols-1 sm:grid-cols-[110px_minmax(0,1fr)]">
+                <Field label="Banyaknya">
+                  <Input
+                    value={item.quantity}
+                    placeholder="3 BAL"
+                    onChange={(e) => setItem(index, "quantity", e.target.value)}
+                  />
+                </Field>
+                <Field label="Nama Barang">
+                  <Input
+                    value={item.name}
+                    onChange={(e) => setItem(index, "name", e.target.value)}
+                  />
+                </Field>
+              </div>
+              <Field label="Keterangan Pengiriman (opsional)">
+                <Input
+                  value={item.description}
+                  placeholder="1 BAL isi 40pcs"
+                  onChange={(e) => setItem(index, "description", e.target.value)}
+                />
+              </Field>
+            </div>
+          ))}
+          <Button type="button" variant="outline" size="sm" className="w-full" onClick={addItem}>
+            <Plus className="h-4 w-4" /> Tambah Barang
+          </Button>
         </div>
-
-        <Field label="Keterangan Pengiriman (opsional)">
-          <Input
-            value={data.keterangan}
-            placeholder="1 BAL isi 40pcs"
-            onChange={(e) => set("keterangan")(e.target.value)}
-          />
-        </Field>
       </div>
     </div>
   );

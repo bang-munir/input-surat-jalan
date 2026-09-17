@@ -11,8 +11,8 @@ export function SheetPreview({
   const wrapRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
 
-  const sheetW = 297;
-  const sheetH = 210;
+  const sheetW = 210;
+  const sheetH = 297;
 
   useEffect(() => {
     const el = wrapRef.current;

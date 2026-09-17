@@ -17,8 +17,7 @@ export const Route = createFileRoute("/pelanggan")({
       { title: "Master Pelanggan & Pengirim | Surat Jalan" },
       {
         name: "description",
-        content:
-          "Kelola master pelanggan penerima dan pengirim agar surat jalan terisi otomatis.",
+        content: "Kelola master pelanggan penerima dan pengirim agar surat jalan terisi otomatis.",
       },
       { property: "og:title", content: "Master Pelanggan & Pengirim" },
       {
@@ -50,7 +49,9 @@ function MasterDataPage() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.nama.trim()) {
-      toast.error(kind === "pelanggan" ? "Nama pelanggan wajib diisi" : "Nama pengirim wajib diisi");
+      toast.error(
+        kind === "pelanggan" ? "Nama pelanggan wajib diisi" : "Nama pengirim wajib diisi",
+      );
       return;
     }
     if (editing) {
@@ -67,7 +68,7 @@ function MasterDataPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background font-sans">
+    <div className="min-h-screen bg-background font-sans pb-20 sm:pb-0">
       <AppNav />
       <main className="mx-auto max-w-7xl px-4 py-8">
         <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">
@@ -103,9 +104,9 @@ function MasterDataPage() {
           >
             <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
               <h2 className="truncate font-display text-base font-bold">
-                 {editing
-                   ? `Edit ${kind === "pelanggan" ? "Pelanggan" : "Pengirim"}`
-                   : `Tambah ${kind === "pelanggan" ? "Pelanggan" : "Pengirim"}`}
+                {editing
+                  ? `Edit ${kind === "pelanggan" ? "Pelanggan" : "Pengirim"}`
+                  : `Tambah ${kind === "pelanggan" ? "Pelanggan" : "Pengirim"}`}
               </h2>
               {editing && (
                 <Button
@@ -124,16 +125,16 @@ function MasterDataPage() {
 
             <div className="mt-4 space-y-4">
               <div className="space-y-1.5">
-                 <Label className="text-xs text-muted-foreground">
-                   {kind === "pelanggan" ? "Nama Pelanggan / Penerima *" : "Nama Pengirim *"}
-                 </Label>
+                <Label className="text-xs text-muted-foreground">
+                  {kind === "pelanggan" ? "Nama Pelanggan / Penerima *" : "Nama Pengirim *"}
+                </Label>
                 <Input
                   value={form.nama}
                   onChange={(e) => setForm({ ...form, nama: e.target.value })}
                 />
               </div>
               <div className="space-y-1.5">
-                 <Label className="text-xs text-muted-foreground">Alamat (opsional)</Label>
+                <Label className="text-xs text-muted-foreground">Alamat (opsional)</Label>
                 <Textarea
                   rows={3}
                   value={form.alamat}
@@ -141,7 +142,7 @@ function MasterDataPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                 <Label className="text-xs text-muted-foreground">No. Telepon (opsional)</Label>
+                <Label className="text-xs text-muted-foreground">No. Telepon (opsional)</Label>
                 <Input
                   value={form.telepon}
                   onChange={(e) => setForm({ ...form, telepon: e.target.value })}
@@ -155,7 +156,10 @@ function MasterDataPage() {
                 />
               </div>
               <Button type="submit" className="w-full">
-                 <Plus className="h-4 w-4" /> {editing ? "Simpan Perubahan" : `Tambah ${kind === "pelanggan" ? "Pelanggan" : "Pengirim"}`}
+                <Plus className="h-4 w-4" />{" "}
+                {editing
+                  ? "Simpan Perubahan"
+                  : `Tambah ${kind === "pelanggan" ? "Pelanggan" : "Pengirim"}`}
               </Button>
             </div>
           </form>
@@ -166,7 +170,7 @@ function MasterDataPage() {
               <Input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                 placeholder={`Cari ${kind}…`}
+                placeholder={`Cari ${kind}…`}
                 className="pl-9"
               />
             </div>
@@ -174,7 +178,7 @@ function MasterDataPage() {
             <div className="mt-4 space-y-3">
               {filtered.length === 0 && (
                 <div className="rounded-2xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-                   Belum ada {kind} yang cocok.
+                  Belum ada {kind} yang cocok.
                 </div>
               )}
               {filtered.map((c) => (
@@ -214,9 +218,9 @@ function MasterDataPage() {
                       variant="ghost"
                       size="icon"
                       onClick={() => {
-                         if (kind === "pelanggan") removeCustomer(c.id);
-                         else removeSender(c.id);
-                         toast.success("Data dihapus");
+                        if (kind === "pelanggan") removeCustomer(c.id);
+                        else removeSender(c.id);
+                        toast.success("Data dihapus");
                       }}
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
