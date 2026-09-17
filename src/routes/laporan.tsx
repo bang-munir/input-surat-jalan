@@ -7,8 +7,17 @@ import { AppNav } from "@/components/AppNav";
 import { SuratJalanPanel, type PanelData } from "@/components/SuratJalanPanel";
 import { SheetPreview } from "@/components/SheetPreview";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useSuratJalanRecords, type SuratJalanRecord, type SuratJalanItem } from "@/lib/suratJalanStorage";
+import { fetchNotaNumbersBySuratJalan } from "@/lib/notaStorage.server";
 import { buildSuratJalanPdf, type SlipData } from "@/lib/suratJalanPdf";
 
 export const Route = createFileRoute("/laporan")({
@@ -40,6 +49,7 @@ function LaporanPage() {
     items: [],
   });
   const [busy, setBusy] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<SuratJalanRecord | null>(null);
 
   const filtered = records.filter((r) =>
     `${r.nomor} ${r.pengirim} ${r.kepada} ${r.tanggal}`.toLowerCase().includes(q.toLowerCase()),
@@ -80,7 +90,25 @@ function LaporanPage() {
       toast.success("Surat Jalan diperbarui");
       closeEdit();
     } catch {
-      toast.error("Gagal memperbarui Surat Jalan");
+      let nomorNota: string[] = [];
+      try {
+        nomorNota = await fetchNotaNumbersBySuratJalan({ data: deleteTarget.id });
+      } catch {
+        // abaikan — fallback ke pesan generik
+      }
+      if (nomorNota.length === 1) {
+        toast.error(
+          `Surat Jalan ${deleteTarget.nomor} masih digunakan oleh Nota ${nomorNota[0]}. Hapus Nota tersebut terlebih dahulu.`,
+        );
+      } else if (nomorNota.length > 1) {
+        toast.error(
+          `Surat Jalan ${deleteTarget.nomor} masih digunakan oleh Nota ${nomorNota.join(", ")}. Hapus Nota tersebut terlebih dahulu.`,
+        );
+      } else {
+        toast.error("Gagal menghapus Surat Jalan");
+      }
+      // Tutup dialog otomatis di semua jalur gagal agar user tidak perlu menekan Batal
+      setDeleteTarget(null);
     } finally {
       setBusy(false);
     }
@@ -127,6 +155,33 @@ function LaporanPage() {
       toast.success("PDF berhasil diunduh");
     } catch {
       toast.error("Gagal membuat PDF");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setBusy(true);
+    try {
+      await removeRecord(deleteTarget.id);
+      toast.success("Surat Jalan berhasil dihapus");
+      setDeleteTarget(null);
+    } catch {
+      // FK RESTRICT dari tabel nota: cari nomor Nota terkait untuk pesan yang informatif
+      const blocked = await fetchNotaNumbersBySuratJalan({ data: { suratJalanId: deleteTarget.id } });
+      if (blocked.length === 1) {
+        toast.error(
+          `Surat Jalan ${deleteTarget.nomor} masih digunakan oleh Nota ${blocked[0]}. Hapus Nota tersebut terlebih dahulu.`,
+        );
+      } else if (blocked.length > 1) {
+        toast.error(
+          `Surat Jalan ${deleteTarget.nomor} masih digunakan oleh Nota: ${blocked.join(", ")}. Hapus Nota tersebut terlebih dahulu.`,
+        );
+      } else {
+        toast.error("Gagal menghapus Surat Jalan");
+      }
+      setDeleteTarget(null);
     } finally {
       setBusy(false);
     }
@@ -472,10 +527,7 @@ function LaporanPage() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => {
-                    removeRecord(r.id);
-                    toast.success("Data dihapus");
-                  }}
+                  onClick={() => setDeleteTarget(r)}
                 >
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
@@ -483,6 +535,32 @@ function LaporanPage() {
             </article>
           ))}
         </div>
+
+        <Dialog
+          open={!!deleteTarget}
+          onOpenChange={(open) => {
+            if (!open) setDeleteTarget(null);
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Hapus Surat Jalan</DialogTitle>
+              <DialogDescription>
+                Apakah Anda yakin ingin menghapus Surat Jalan{" "}
+                <span className="font-bold">{deleteTarget?.nomor}</span>? Tindakan ini tidak dapat
+                dibatalkan.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={busy}>
+                Batal
+              </Button>
+              <Button variant="destructive" onClick={handleDelete} disabled={busy}>
+                {busy ? "Menghapus…" : "Hapus"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );

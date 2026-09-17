@@ -59,7 +59,10 @@ export const addSuratJalan = createServerFn({ method: "POST" })
 export const deleteSuratJalan = createServerFn({ method: "POST" })
   .validator((data: { id: string }) => data)
   .handler(async ({ data }) => {
-    await db.delete(suratJalan).where(eq(suratJalan.id, data.id));
+    await db.transaction(async (tx) => {
+      await tx.delete(suratJalanItems).where(eq(suratJalanItems.suratJalanId, data.id));
+      await tx.delete(suratJalan).where(eq(suratJalan.id, data.id));
+    });
   });
 
 export const updateSuratJalan = createServerFn({ method: "POST" })

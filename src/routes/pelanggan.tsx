@@ -5,6 +5,14 @@ import { toast } from "sonner";
 
 import { AppNav } from "@/components/AppNav";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,6 +48,8 @@ function MasterDataPage() {
   const [form, setForm] = useState(empty);
   const [editing, setEditing] = useState<MasterRecord | null>(null);
   const [q, setQ] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{ kind: MasterKind; record: MasterRecord } | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const records = kind === "pelanggan" ? customers : senders;
   const filtered = records.filter((c) =>
@@ -65,6 +75,29 @@ function MasterDataPage() {
     }
     setForm(empty);
     setEditing(null);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleteBusy(true);
+    try {
+      if (deleteTarget.kind === "pelanggan") {
+        await removeCustomer(deleteTarget.record.id);
+        toast.success("Pelanggan berhasil dihapus");
+      } else {
+        await removeSender(deleteTarget.record.id);
+        toast.success("Pengirim berhasil dihapus");
+      }
+      setDeleteTarget(null);
+    } catch {
+      toast.error(
+        deleteTarget.kind === "pelanggan"
+          ? "Gagal menghapus Pelanggan"
+          : "Gagal menghapus Pengirim",
+      );
+    } finally {
+      setDeleteBusy(false);
+    }
   };
 
   return (
@@ -217,11 +250,7 @@ function MasterDataPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => {
-                        if (kind === "pelanggan") removeCustomer(c.id);
-                        else removeSender(c.id);
-                        toast.success("Data dihapus");
-                      }}
+                      onClick={() => setDeleteTarget({ kind, record: c })}
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
@@ -231,6 +260,39 @@ function MasterDataPage() {
             </div>
           </div>
         </div>
+
+        <Dialog
+          open={!!deleteTarget}
+          onOpenChange={(open) => {
+            if (!open) setDeleteTarget(null);
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                Hapus {deleteTarget?.kind === "pelanggan" ? "Pelanggan" : "Pengirim"}
+              </DialogTitle>
+              <DialogDescription>
+                Apakah Anda yakin ingin menghapus{" "}
+                {deleteTarget?.kind === "pelanggan" ? "Pelanggan" : "Pengirim"}{" "}
+                <span className="font-bold">{deleteTarget?.record.nama}</span>? Tindakan ini tidak
+                dapat dibatalkan.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleteBusy}
+              >
+                Batal
+              </Button>
+              <Button variant="destructive" onClick={handleDelete} disabled={deleteBusy}>
+                {deleteBusy ? "Menghapus…" : "Hapus"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );

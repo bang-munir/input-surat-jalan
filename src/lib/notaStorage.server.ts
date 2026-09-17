@@ -16,6 +16,19 @@ export const fetchNota = createServerFn({ method: "GET" }).handler(async () => {
   }));
 });
 
+// Nomor-nomor Nota yang mereferensikan sebuah Surat Jalan (dipakai untuk
+// menampilkan pesan error yang informatif saat hapus diblokir FK RESTRICT).
+export const fetchNotaNumbersBySuratJalan = createServerFn({ method: "GET" })
+  .validator((data: { suratJalanId: string }) => data)
+  .handler(async ({ data }) => {
+    const rows = await db.query.nota.findMany({
+      columns: { nomor: true },
+      where: eq(nota.suratJalanId, data.suratJalanId),
+      orderBy: [asc(nota.nomor)],
+    });
+    return rows.map((r) => r.nomor);
+  });
+
 // Add a new Nota (client supplies nomor)
 export const addNota = createServerFn({ method: "POST" })
   .validator(
