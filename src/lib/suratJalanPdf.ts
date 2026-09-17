@@ -67,19 +67,43 @@ export function drawSlip(pdf: jsPDF, data: SlipData, offsetY: number) {
     { label: "Alamat", value: data.alamatPengirim },
   ]);
 
-  let py = y(28);
+  const penerimaRows = rows([
+    { label: "Kepada", value: data.kepada },
+    { label: "No. Telp", value: data.telepon },
+    { label: "Alamat", value: data.alamat },
+  ]);
+
+  const rx = 145;
   pdf.setFontSize(7);
-  for (const r of pengirimRows) {
+  pdf.setFont("helvetica", "normal");
+
+  const lineStep = (pdf.getFontSize() * pdf.getLineHeightFactor()) / pdf.internal.scaleFactor;
+
+  const plan = (list: FieldRow[], startY: number, wrapWidth: number) => {
+    let rowY = startY;
+    const planned = list.map((r) => {
+      const lines = pdf.splitTextToSize(r.value, wrapWidth) as string[];
+      const row = { label: r.label, lines, baseline: rowY };
+      rowY += 4.5 + (lines.length - 1) * 2.5;
+      return row;
+    });
+    const last = planned[planned.length - 1];
+    const bottom = last ? last.baseline + (last.lines.length - 1) * lineStep : startY;
+    return { planned, bottom };
+  };
+
+  const pengirim = plan(pengirimRows, y(28), 40);
+  const penerima = plan(penerimaRows, y(12), mr - (rx + 24));
+
+  for (const r of pengirim.planned) {
     pdf.setFont("helvetica", "normal");
-    pdf.text(r.label, ml, py);
-    pdf.text(":", ml + 24, py);
-    const lines = pdf.splitTextToSize(r.value, 40) as string[];
+    pdf.text(r.label, ml, r.baseline);
+    pdf.text(":", ml + 24, r.baseline);
     pdf.setFont("helvetica", "bold");
-    pdf.text(lines.slice(0, 2), ml + 27, py);
+    pdf.text(r.lines, ml + 27, r.baseline);
     pdf.setDrawColor(...LINE);
     pdf.setLineWidth(0.12);
-    pdf.line(ml + 27, py + 1.4, ml + 67, py + 1.4);
-    py += 4.5 + Math.min(lines.length - 1, 1) * 2.5;
+    pdf.line(ml + 27, r.baseline + 1.4, ml + 67, r.baseline + 1.4);
   }
 
   const cx = 90;
@@ -94,44 +118,35 @@ export function drawSlip(pdf: jsPDF, data: SlipData, offsetY: number) {
     pdf.line(cx + 24, y(14.4), cx + 44, y(14.4));
   }
 
-  const rx = 145;
   pdf.setDrawColor(...LINE);
   pdf.setLineWidth(0.2);
-  pdf.line(rx - 7, y(9), rx - 7, y(35));
+  pdf.line(rx - 7, y(9), rx - 7, Math.max(y(35), penerima.bottom));
 
-  const penerimaRows = rows([
-    { label: "Kepada", value: data.kepada },
-    { label: "No. Telp", value: data.telepon },
-    { label: "Alamat", value: data.alamat },
-  ]);
-
-  let ry = y(12);
-  for (const r of penerimaRows) {
+  for (const r of penerima.planned) {
     pdf.setFont("helvetica", "normal");
-    pdf.text(r.label, rx, ry);
-    pdf.text(":", rx + 20, ry);
-    const lines = pdf.splitTextToSize(r.value, mr - (rx + 24)) as string[];
+    pdf.text(r.label, rx, r.baseline);
+    pdf.text(":", rx + 20, r.baseline);
     pdf.setFont("helvetica", "bold");
-    pdf.text(lines.slice(0, 3), rx + 24, ry);
+    pdf.text(r.lines, rx + 24, r.baseline);
     if (r.label !== "Alamat") {
       pdf.setDrawColor(...LINE);
-      pdf.line(rx + 24, ry + 1.4, mr, ry + 1.4);
+      pdf.line(rx + 24, r.baseline + 1.4, mr, r.baseline + 1.4);
     }
-    ry += 4.5 + Math.min(lines.length - 1, 2) * 2.5;
   }
 
-  const headBottom = y(39);
+  const shift = Math.max(0, Math.max(pengirim.bottom, penerima.bottom) + 0.7 - y(39));
+  const headBottom = y(39) + shift;
   pdf.setDrawColor(...LINE);
   pdf.setLineWidth(0.3);
   pdf.line(ml, headBottom, mr, headBottom);
 
   pdf.setFont("helvetica", "italic");
   pdf.setFontSize(7);
-  pdf.text("Kami kirimkan barang-barang tersebut di bawah ini:", ml, y(44));
+  pdf.text("Kami kirimkan barang-barang tersebut di bawah ini:", ml, headBottom + 5);
 
   const safeItems =
     data.items.length > 0 ? data.items : [{ quantity: "", name: "", description: "" }];
-  const tTop = y(47);
+  const tTop = y(47) + shift;
   const tHead = 7;
   const rowH = 9;
   const tBody = safeItems.length * rowH;
@@ -172,14 +187,14 @@ export function drawSlip(pdf: jsPDF, data: SlipData, offsetY: number) {
     }
   }
 
-  const sTop = y(100);
+  const sTop = y(100) + shift;
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(7);
   pdf.setTextColor(...BRAND);
   pdf.text("PENERIMA,", ml + 50, sTop, { align: "center" });
   pdf.text("HORMAT KAMI,", mr - 50, sTop, { align: "center" });
 
-  const sName = y(112);
+  const sName = y(112) + shift;
   pdf.setTextColor(...INK);
   pdf.setFont("helvetica", "normal");
   pdf.text("(  ..................................  )", ml + 50, sName, { align: "center" });
@@ -188,11 +203,11 @@ export function drawSlip(pdf: jsPDF, data: SlipData, offsetY: number) {
 
   pdf.setDrawColor(...LINE);
   pdf.setLineWidth(0.2);
-  pdf.line(ml, y(118), mr, y(118));
+  pdf.line(ml, y(118) + shift, mr, y(118) + shift);
 
   const itemsWithDesc = safeItems.filter((item) => has(item.description));
   if (itemsWithDesc.length > 0) {
-    const kY = y(122);
+    const kY = y(122) + shift;
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(6);
     pdf.setTextColor(...BRAND);

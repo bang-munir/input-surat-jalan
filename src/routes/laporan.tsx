@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { useSuratJalanRecords, type SuratJalanRecord, type SuratJalanItem } from "@/lib/suratJalanStorage";
 import { fetchNotaNumbersBySuratJalan } from "@/lib/notaStorage.server";
 import { buildSuratJalanPdf, type SlipData } from "@/lib/suratJalanPdf";
+import { downloadPdf as saveGeneratedPdf } from "@/lib/pdfDownload";
 
 export const Route = createFileRoute("/laporan")({
   head: () => ({
@@ -151,7 +152,7 @@ function LaporanPage() {
         items: record.items,
       };
       const pdf = await buildSuratJalanPdf(slipData, null);
-      pdf.save(`surat-jalan-${record.nomor || "tanpa-nomor"}.pdf`);
+      await saveGeneratedPdf(pdf, `Surat-Jalan-${record.nomor || "tanpa-nomor"}.pdf`);
       toast.success("PDF berhasil diunduh");
     } catch {
       toast.error("Gagal membuat PDF");

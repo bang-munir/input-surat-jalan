@@ -21,6 +21,7 @@ import { useCustomers } from "@/lib/customers";
 import { useSenders } from "@/lib/senders";
 import { useSuratJalanRecords } from "@/lib/suratJalanStorage";
 import { buildSuratJalanPdf, type SlipData } from "@/lib/suratJalanPdf";
+import { downloadPdf as saveGeneratedPdf } from "@/lib/pdfDownload";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -106,7 +107,7 @@ function GeneratorPage() {
         renderAtas as SlipData,
         bawahKosong ? null : (renderBawah as SlipData),
       );
-      pdf.save(`surat-jalan-${atas.nomor || "tanpa-nomor"}.pdf`);
+      await saveGeneratedPdf(pdf, `Surat-Jalan-${atas.nomor || "tanpa-nomor"}.pdf`);
       toast.success("PDF A4 lanskap berhasil diunduh");
     } catch {
       toast.error("Gagal membuat PDF");

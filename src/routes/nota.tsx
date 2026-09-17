@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useNotaRecords, type NotaRecord, type NotaItem } from "@/lib/notaStorage";
 import { buildNotaPdfA5, buildNotaPdfA4 } from "@/lib/notaPdf";
+import { downloadPdf as saveGeneratedPdf } from "@/lib/pdfDownload";
 import { useSuratJalanRecords, type SuratJalanRecord } from "@/lib/suratJalanStorage";
 
 export const Route = createFileRoute("/nota")({
@@ -603,7 +604,7 @@ function DetailNota({
     try {
       const pdf = format === "a5" ? await buildNotaPdfA5(record) : await buildNotaPdfA4(record);
       const suffix = format === "a5" ? "A5" : "A4";
-      pdf.save(`Nota-${record.nomor}-${suffix}.pdf`);
+      await saveGeneratedPdf(pdf, `Nota-${record.nomor}-${suffix}.pdf`);
       toast.success("PDF berhasil diunduh");
     } catch {
       toast.error(format === "a5" ? "Gagal membuat PDF A5" : "Gagal membuat PDF A4");
