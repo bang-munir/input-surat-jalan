@@ -246,12 +246,5 @@ export async function buildSuratJalanPdf(atas: SlipData, bawah: SlipData | null)
     creator: "Generator Surat Jalan",
   });
 
-  // garis potong di tengah (antara A5 atas dan A5 bawah)
-  pdf.setDrawColor(140, 150, 170);
-  pdf.setLineWidth(0.2);
-  pdf.setLineDashPattern([2, 2], 0);
-  pdf.line(0, 148.5, 210, 148.5);
-  pdf.setLineDashPattern([], 0);
-
   return pdf;
 }

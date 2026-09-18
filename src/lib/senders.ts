@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchSenders, addSender, updateSender, deleteSender } from "./senders.server";
 
 export type Sender = {
@@ -9,41 +10,69 @@ export type Sender = {
   catatan?: string;
 };
 
+const sendersQueryKey = ["senders"] as const;
+const STALE_TIME = 5 * 60_000;
+
 export function useSenders() {
-  const [senders, setSenders] = useState<Sender[]>([]);
+  const queryClient = useQueryClient();
 
-  const load = useCallback(async () => {
-    const data = await fetchSenders();
-    setSenders(data);
-  }, []);
+  const query = useQuery({
+    queryKey: sendersQueryKey,
+    queryFn: () => fetchSenders() as unknown as Promise<Sender[]>,
+    staleTime: STALE_TIME,
+    placeholderData: (previous) => previous ?? undefined,
+  });
 
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const add = useCallback(
-    async (data: Omit<Sender, "id">) => {
-      await addSender({ data });
-      await load();
+  const addMutation = useMutation({
+    mutationFn: (data: Omit<Sender, "id">) => addSender({ data }),
+    onSuccess: (record) => {
+      queryClient.setQueryData<Sender[]>(sendersQueryKey, (current) => [
+        ...(current ?? []),
+        record as unknown as Sender,
+      ]);
     },
-    [load],
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (vars: { id: string; data: Omit<Sender, "id"> }) =>
+      updateSender({ data: { id: vars.id, ...vars.data } }),
+    onSuccess: (_result, vars) => {
+      queryClient.setQueryData<Sender[]>(sendersQueryKey, (current) =>
+        (current ?? []).map((s) => (s.id === vars.id ? { ...s, ...vars.data } : s)),
+      );
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteSender({ data: { id } }),
+    onSuccess: (_result, id) => {
+      queryClient.setQueryData<Sender[]>(sendersQueryKey, (current) =>
+        (current ?? []).filter((s) => s.id !== id),
+      );
+    },
+  });
+
+  const senders = query.data ?? [];
+  const loaded = query.isSuccess;
+
+  const addSenderCb = useCallback(
+    (data: Omit<Sender, "id">) => addMutation.mutateAsync(data),
+    [addMutation],
+  );
+  const updateSenderCb = useCallback(
+    (id: string, data: Omit<Sender, "id">) => updateMutation.mutateAsync({ id, data }),
+    [updateMutation],
+  );
+  const removeSenderCb = useCallback(
+    (id: string) => deleteMutation.mutateAsync(id),
+    [deleteMutation],
   );
 
-  const update = useCallback(
-    async (id: string, data: Omit<Sender, "id">) => {
-      await updateSender({ data: { id, ...data } });
-      await load();
-    },
-    [load],
-  );
-
-  const remove = useCallback(
-    async (id: string) => {
-      await deleteSender({ data: { id } });
-      await load();
-    },
-    [load],
-  );
-
-  return { senders, addSender: add, updateSender: update, removeSender: remove };
+  return {
+    senders,
+    loaded,
+    addSender: addSenderCb,
+    updateSender: updateSenderCb,
+    removeSender: removeSenderCb,
+  };
 }

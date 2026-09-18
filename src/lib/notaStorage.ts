@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useMemo } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchNota, addNota, updateNota, deleteNota } from "./notaStorage.server";
 
 export type NotaItem = {
@@ -24,6 +25,9 @@ export type NotaRecord = {
   createdAt: string;
 };
 
+const notaQueryKey = ["nota"] as const;
+const STALE_TIME = 30_000;
+
 function generateNomor(records: NotaRecord[]): string {
   const used = new Set(records.map((r) => r.nomor));
   let nomor: string;
@@ -35,48 +39,68 @@ function generateNomor(records: NotaRecord[]): string {
 }
 
 export function useNotaRecords() {
-  const [records, setRecords] = useState<NotaRecord[]>([]);
-  const [loaded, setLoaded] = useState(false);
+  const queryClient = useQueryClient();
 
-  const load = useCallback(async () => {
-    const data = await fetchNota();
-    setRecords(data as NotaRecord[]);
-    setLoaded(true);
-  }, []);
+  const query = useQuery({
+    queryKey: notaQueryKey,
+    queryFn: async () => (await fetchNota()) as unknown as NotaRecord[],
+    staleTime: STALE_TIME,
+    placeholderData: (previous) => previous ?? undefined,
+  });
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  const addMutation = useMutation({
+    mutationFn: (data: Omit<NotaRecord, "id" | "nomor" | "createdAt">) => {
+      const current = queryClient.getQueryData<NotaRecord[]>(notaQueryKey) ?? [];
+      const nomor = generateNomor(current);
+      return addNota({ data: { ...data, nomor } });
+    },
+    onSuccess: (record) => {
+      queryClient.setQueryData<NotaRecord[]>(notaQueryKey, (current) => [
+        ...(current ?? []),
+        record as unknown as NotaRecord,
+      ]);
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (vars: { id: string; data: Omit<NotaRecord, "id" | "nomor" | "createdAt"> }) =>
+      updateNota({ data: { id: vars.id, ...vars.data } }),
+    onSuccess: (_result, vars) => {
+      queryClient.setQueryData<NotaRecord[]>(notaQueryKey, (current) =>
+        (current ?? []).map((r) => (r.id === vars.id ? { ...r, ...vars.data } : r)),
+      );
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteNota({ data: { id } }),
+    onSuccess: (_result, id) => {
+      queryClient.setQueryData<NotaRecord[]>(notaQueryKey, (current) =>
+        (current ?? []).filter((r) => r.id !== id),
+      );
+    },
+  });
+
+  const records = useMemo(() => query.data ?? [], [query.data]);
+  const loaded = query.isSuccess;
 
   const addRecord = useCallback(
-    async (data: Omit<NotaRecord, "id" | "nomor" | "createdAt">) => {
-      const nomor = generateNomor(records);
-      const inserted = await addNota({ data: { ...data, nomor } });
-      // Optimistically update state without full reload
-      setRecords((prev) => [...prev, inserted as NotaRecord]);
-    },
-    [records, setRecords],
+    (data: Omit<NotaRecord, "id" | "nomor" | "createdAt">) => addMutation.mutateAsync(data),
+    [addMutation],
   );
-
   const updateRecord = useCallback(
-    async (id: string, data: Omit<NotaRecord, "id" | "nomor" | "createdAt">) => {
-      await updateNota({ data: { id, ...data } });
-      await load();
-    },
-    [load],
+    (id: string, data: Omit<NotaRecord, "id" | "nomor" | "createdAt">) =>
+      updateMutation.mutateAsync({ id, data }),
+    [updateMutation],
   );
-
   const removeRecord = useCallback(
-    async (id: string) => {
-      await deleteNota({ data: { id } });
-      await load();
-    },
-    [load],
+    (id: string) => deleteMutation.mutateAsync(id),
+    [deleteMutation],
   );
-
-  const getRecord = useCallback((id: string) => {
-    return records.find((r) => r.id === id) || null;
-  }, [records]);
+  const getRecord = useCallback(
+    (id: string) => records.find((r) => r.id === id) ?? null,
+    [records],
+  );
 
   return { records, loaded, addRecord, updateRecord, removeRecord, getRecord };
 }

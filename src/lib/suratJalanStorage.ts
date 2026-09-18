@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useMemo } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   fetchSuratJalan,
   addSuratJalan,
@@ -26,49 +27,68 @@ export type SuratJalanRecord = {
   createdAt: string;
 };
 
+const suratJalanQueryKey = ["surat-jalan"] as const;
+const STALE_TIME = 30_000;
+
 export function useSuratJalanRecords() {
-  const [records, setRecords] = useState<SuratJalanRecord[]>([]);
-  const [loaded, setLoaded] = useState(false);
+  const queryClient = useQueryClient();
 
-  const load = useCallback(async () => {
-    const data = await fetchSuratJalan();
-    setRecords(data as SuratJalanRecord[]);
-    setLoaded(true);
-  }, []);
+  const query = useQuery({
+    queryKey: suratJalanQueryKey,
+    queryFn: async () => (await fetchSuratJalan()) as unknown as SuratJalanRecord[],
+    staleTime: STALE_TIME,
+    placeholderData: (previous) => previous ?? undefined,
+  });
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  const addMutation = useMutation({
+    mutationFn: (data: Omit<SuratJalanRecord, "id" | "createdAt">) => addSuratJalan({ data }),
+    onSuccess: (record) => {
+      queryClient.setQueryData<SuratJalanRecord[]>(suratJalanQueryKey, (current) => [
+        ...(current ?? []),
+        record as unknown as SuratJalanRecord,
+      ]);
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (vars: {
+      id: string;
+      data: Omit<SuratJalanRecord, "id" | "createdAt" | "nomor">;
+    }) => updateSuratJalan({ data: { id: vars.id, ...vars.data } }),
+    onSuccess: (_result, vars) => {
+      queryClient.setQueryData<SuratJalanRecord[]>(suratJalanQueryKey, (current) =>
+        (current ?? []).map((r) => (r.id === vars.id ? { ...r, ...vars.data } : r)),
+      );
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteSuratJalan({ data: { id } }),
+    onSuccess: (_result, id) => {
+      queryClient.setQueryData<SuratJalanRecord[]>(suratJalanQueryKey, (current) =>
+        (current ?? []).filter((r) => r.id !== id),
+      );
+    },
+  });
+
+  const records = useMemo(() => query.data ?? [], [query.data]);
+  const loaded = query.isSuccess;
 
   const addRecord = useCallback(
-    async (data: Omit<SuratJalanRecord, "id" | "createdAt">) => {
-      const item = await addSuratJalan({ data });
-      await load();
-      return item as SuratJalanRecord;
-    },
-    [load],
+    (data: Omit<SuratJalanRecord, "id" | "createdAt">) => addMutation.mutateAsync(data),
+    [addMutation],
   );
-
   const updateRecord = useCallback(
-    async (id: string, data: Omit<SuratJalanRecord, "id" | "createdAt" | "nomor">) => {
-      await updateSuratJalan({ data: { id, ...data } });
-      await load();
-    },
-    [load],
+    (id: string, data: Omit<SuratJalanRecord, "id" | "createdAt" | "nomor">) =>
+      updateMutation.mutateAsync({ id, data }),
+    [updateMutation],
   );
-
   const removeRecord = useCallback(
-    async (id: string) => {
-      await deleteSuratJalan({ data: { id } });
-      await load();
-    },
-    [load],
+    (id: string) => deleteMutation.mutateAsync(id),
+    [deleteMutation],
   );
-
   const getRecord = useCallback(
-    (id: string) => {
-      return records.find((r) => r.id === id) || null;
-    },
+    (id: string) => records.find((r) => r.id === id) ?? null,
     [records],
   );
 

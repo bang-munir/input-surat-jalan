@@ -1,438 +1,446 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Copy, Download, Printer, Plus, Trash2, Save } from "lucide-react";
-import { toast } from "sonner";
-
-import { AppNav } from "@/components/AppNav";
-import { SheetPreview } from "@/components/SheetPreview";
-import { SuratJalanPanel, type PanelData, type PanelItem } from "@/components/SuratJalanPanel";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMemo } from "react";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useCustomers } from "@/lib/customers";
-import { useSenders } from "@/lib/senders";
+  ArrowRight,
+  CalendarDays,
+  FilePlus2,
+  FileText,
+  Package,
+  Receipt,
+  ReceiptText,
+  Truck,
+  UserPlus,
+  Users,
+  Wallet,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
+import { AppNav } from "@/components/AppNav";
 import { useSuratJalanRecords } from "@/lib/suratJalanStorage";
-import { buildSuratJalanPdf, type SlipData } from "@/lib/suratJalanPdf";
-import { downloadPdf as saveGeneratedPdf } from "@/lib/pdfDownload";
+import { useNotaRecords } from "@/lib/notaStorage";
+
+const JAKARTA_TIME_ZONE = "Asia/Jakarta";
+
+const INDONESIAN_MONTHS: Record<string, number> = {
+  januari: 1,
+  februari: 2,
+  maret: 3,
+  april: 4,
+  mei: 5,
+  juni: 6,
+  juli: 7,
+  agustus: 8,
+  september: 9,
+  oktober: 10,
+  november: 11,
+  desember: 12,
+};
+
+type YearMonth = { year: number; month: number };
+
+function getJakartaYearMonth(): YearMonth {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: JAKARTA_TIME_ZONE,
+    year: "numeric",
+    month: "numeric",
+  }).formatToParts(new Date());
+  const year = Number(parts.find((part) => part.type === "year")?.value);
+  const month = Number(parts.find((part) => part.type === "month")?.value);
+  return { year, month };
+}
+
+function parseCalendarYearMonth(value: string): YearMonth | null {
+  const trimmed = (value ?? "").trim();
+  if (!trimmed) return null;
+
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{2})(?:-\d{2})?/);
+  if (isoMatch) {
+    const year = Number(isoMatch[1]);
+    const month = Number(isoMatch[2]);
+    return month >= 1 && month <= 12 ? { year, month } : null;
+  }
+
+  const localizedMatch = trimmed.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
+  if (localizedMatch) {
+    const [, , monthName, yearText] = localizedMatch;
+    const month = INDONESIAN_MONTHS[(monthName ?? "").toLowerCase()];
+    const year = Number(yearText);
+    if (month !== undefined) return { year, month };
+  }
+
+  return null;
+}
+
+function formatRupiah(n: number): string {
+  return "Rp " + n.toLocaleString("id-ID");
+}
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Generator Surat Jalan A4 Lanskap 2 Surat" },
-      {
-        name: "description",
-        content:
-          "Buat surat jalan profesional: satu halaman A4 lanskap berisi dua surat jalan lanskap, siap cetak dan unduh PDF.",
-      },
-      { property: "og:title", content: "Generator Surat Jalan A4 Lanskap" },
-      {
-        property: "og:description",
-        content: "Dua surat jalan lanskap dalam satu halaman A4, unduh PDF tajam siap cetak.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
+      { title: "Dashboard - INPUT SURAT" },
+      { name: "description", content: "Dashboard aplikasi INPUT SURAT" },
     ],
   }),
-  component: GeneratorPage,
+  component: DashboardPage,
 });
 
-function todayISO() {
-  return new Date().toISOString().slice(0, 10);
+function MetricCard({
+  label,
+  value,
+  valueSuffix,
+  description,
+  iconBg,
+  iconColor,
+  icon: Icon,
+  valueClassName = "text-[22px] sm:text-[28px]",
+}: {
+  label: string;
+  value: string;
+  valueSuffix?: string;
+  description: string;
+  iconBg: string;
+  iconColor: string;
+  icon: LucideIcon;
+  valueClassName?: string;
+}) {
+  return (
+    <div className="bg-white p-4 sm:p-5 rounded-xl shadow-sm flex flex-col justify-between relative overflow-hidden">
+      <div className="flex items-center justify-between">
+        <span className="text-[13px] sm:text-sm font-medium text-[#5a4138]">{label}</span>
+        <div
+          className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg ${iconBg} flex items-center justify-center`}
+        >
+          <Icon className={`h-[18px] w-[18px] sm:h-5 sm:w-5 ${iconColor}`} />
+        </div>
+      </div>
+      <div className="mt-2 sm:mt-3 space-y-1">
+        <div className={`${valueClassName} font-bold text-[#0b1c30] tracking-tight leading-none`}>
+          {value}
+          {valueSuffix && (
+            <span className="text-[14px] sm:text-base font-normal text-[#5a4138] ml-1">
+              {valueSuffix}
+            </span>
+          )}
+        </div>
+        <div className="text-[12px] sm:text-[13px] text-[#5a4138] truncate">{description}</div>
+      </div>
+    </div>
+  );
 }
 
-function formatTanggal(iso: string) {
-  if (!iso) return "";
-  const d = new Date(iso + "T00:00:00");
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
-}
-
-function generateNomor() {
-  const digits = Math.floor(1000 + Math.random() * 9000).toString();
-  return `SJ-${digits}`;
-}
-
-const emptyItem: PanelItem = { quantity: "", name: "", description: "" };
-
-const basePanel: PanelData = {
-  nomor: "",
-  tanggal: "",
-  kepada: "",
-  alamat: "",
-  telepon: "",
-  items: [{ ...emptyItem }],
-  pengirim: "",
-  teleponPengirim: "",
-  alamatPengirim: "",
-};
-
-/** Surat dianggap kosong bila tidak ada isi selain nomor & tanggal otomatis. */
-function isEmptySlip(d: PanelData) {
-  const hasItems = d.items.some((item) => item.name.trim() || item.quantity.trim());
-  return ![d.kepada, d.pengirim, d.alamat, d.telepon].some((v) => v.trim()) && !hasItems;
-}
-
-function GeneratorPage() {
-  const { customers } = useCustomers();
-  const { senders } = useSenders();
-  const { addRecord } = useSuratJalanRecords();
-  const [atas, setAtas] = useState<PanelData>(basePanel);
-  const [bawah, setBawah] = useState<PanelData>(basePanel);
-  const sheetRef = useRef<HTMLDivElement>(null);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    const today = todayISO();
-    setAtas((prev) => ({ ...prev, nomor: generateNomor(), tanggal: today }));
-    setBawah((prev) => ({ ...prev, nomor: generateNomor(), tanggal: today }));
-  }, []);
-
-  const renderAtas = useMemo(() => ({ ...atas, tanggal: formatTanggal(atas.tanggal) }), [atas]);
-  const renderBawah = useMemo(() => ({ ...bawah, tanggal: formatTanggal(bawah.tanggal) }), [bawah]);
-
-  const bawahKosong = isEmptySlip(bawah);
-
-  const downloadPdf = async () => {
-    setBusy(true);
-    try {
-      const pdf = await buildSuratJalanPdf(
-        renderAtas as SlipData,
-        bawahKosong ? null : (renderBawah as SlipData),
-      );
-      await saveGeneratedPdf(pdf, `Surat-Jalan-${atas.nomor || "tanpa-nomor"}.pdf`);
-      toast.success("PDF A4 lanskap berhasil diunduh");
-    } catch {
-      toast.error("Gagal membuat PDF");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const saveSuratJalan = () => {
-    if (isEmptySlip(atas) && bawahKosong) {
-      toast.error("Tidak ada data surat jalan yang tersimpan");
-      return;
-    }
-    if (!isEmptySlip(atas)) {
-      addRecord({
-        nomor: atas.nomor,
-        tanggal: formatTanggal(atas.tanggal),
-        pengirim: atas.pengirim,
-        teleponPengirim: atas.teleponPengirim,
-        alamatPengirim: atas.alamatPengirim,
-        kepada: atas.kepada,
-        telepon: atas.telepon,
-        alamat: atas.alamat,
-        items: atas.items,
-      });
-    }
-    if (!bawahKosong) {
-      addRecord({
-        nomor: bawah.nomor,
-        tanggal: formatTanggal(bawah.tanggal),
-        pengirim: bawah.pengirim,
-        teleponPengirim: bawah.teleponPengirim,
-        alamatPengirim: bawah.alamatPengirim,
-        kepada: bawah.kepada,
-        telepon: bawah.telepon,
-        alamat: bawah.alamat,
-        items: bawah.items,
-      });
-    }
-    toast.success("Surat jalan berhasil disimpan");
-  };
+function QuickAction({
+  to,
+  label,
+  subtitle,
+  icon: Icon,
+  variant = "secondary",
+}: {
+  to: string;
+  label: string;
+  subtitle: string;
+  icon: LucideIcon;
+  variant?: "primary" | "secondary";
+}) {
+  const isPrimary = variant === "primary";
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-background font-sans pb-20 sm:pb-0">
+    <Link
+      to={to}
+      className={`w-full min-h-[50px] sm:min-h-[56px] p-3 sm:p-3.5 rounded-xl shadow-sm flex items-center gap-2.5 text-left transition-all hover:-translate-y-0.5 active:scale-[0.98] ${
+        isPrimary
+          ? "bg-[#a33900] text-white hover:bg-[#8a3000]"
+          : "bg-white text-[#0b1c30] hover:bg-gray-50"
+      }`}
+    >
+      <div
+        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
+          isPrimary ? "bg-white/15" : "bg-[#e5eeff]"
+        }`}
+      >
+        <Icon
+          className={`h-5 w-5 sm:h-[22px] sm:w-[22px] ${isPrimary ? "text-white" : "text-[#a33900]"}`}
+        />
+      </div>
+      <div className="min-w-0">
+        <div
+          className={`text-[14px] sm:text-[15px] font-bold leading-tight truncate ${isPrimary ? "text-white" : ""}`}
+        >
+          {label}
+        </div>
+        <div
+          className={`text-[12px] sm:text-[13px] truncate ${isPrimary ? "text-white/80" : "text-[#5a4138]"}`}
+        >
+          {subtitle}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function ActivityItem({
+  docNumber,
+  companyName,
+  icon: Icon,
+  iconBg,
+  iconColor,
+}: {
+  docNumber: string;
+  companyName: string;
+  icon: LucideIcon;
+  iconBg: string;
+  iconColor: string;
+}) {
+  return (
+    <div className="p-3 rounded-lg bg-white hover:bg-gray-50 transition-colors flex items-center justify-between gap-3">
+      <div className="flex items-center gap-3 min-w-0">
+        <div
+          className={`w-9 h-9 rounded-lg ${iconBg} flex items-center justify-center flex-shrink-0`}
+        >
+          <Icon className={`h-5 w-5 ${iconColor}`} />
+        </div>
+        <div className="min-w-0">
+          <div className="font-mono text-[13px] font-semibold text-[#0b1c30] truncate">
+            {docNumber}
+          </div>
+          <div className="text-[13px] text-[#0b1c30] font-medium truncate">{companyName}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DashboardPage() {
+  const { records: sjRecords } = useSuratJalanRecords();
+  const { records: notaRecords } = useNotaRecords();
+
+  const totalSj = sjRecords.length;
+  const totalNota = notaRecords.length;
+  const totalBarang = notaRecords.reduce(
+    (sum, r) => sum + r.items.reduce((s, i) => s + (parseInt(i.quantity) || 0), 0),
+    0,
+  );
+  const totalRpNota = notaRecords.reduce((sum, r) => sum + (Number(r.total) || 0), 0);
+
+  const { year: currentYear, month: currentMonth } = getJakartaYearMonth();
+  const periodeLabel = new Intl.DateTimeFormat("id-ID", {
+    timeZone: JAKARTA_TIME_ZONE,
+    month: "long",
+    year: "numeric",
+  }).format(new Date());
+
+  const monthNotaRecords = useMemo(
+    () =>
+      notaRecords.filter((r) => {
+        const transaction = parseCalendarYearMonth(r.tanggal);
+        return (
+          transaction !== null &&
+          transaction.year === currentYear &&
+          transaction.month === currentMonth
+        );
+      }),
+    [notaRecords, currentYear, currentMonth],
+  );
+  const monthNotaCount = monthNotaRecords.length;
+  const monthBarang = monthNotaRecords.reduce(
+    (sum, r) => sum + r.items.reduce((s, i) => s + (parseInt(i.quantity) || 0), 0),
+    0,
+  );
+  const monthRpNota = monthNotaRecords.reduce((sum, r) => sum + (Number(r.total) || 0), 0);
+
+  const recentActivity = [
+    ...sjRecords.map((r) => ({
+      key: `sj-${r.id}`,
+      docNumber: r.nomor,
+      companyName: r.kepada,
+      createdAt: r.createdAt,
+      icon: FileText,
+      iconBg: "bg-[#ffdbca]",
+      iconColor: "text-[#a33900]",
+    })),
+    ...notaRecords.map((r) => ({
+      key: `nt-${r.id}`,
+      docNumber: r.nomor,
+      companyName: r.penerima,
+      createdAt: r.createdAt,
+      icon: Receipt,
+      iconBg: "bg-[#dae2fd]",
+      iconColor: "text-[#565e74]",
+    })),
+  ]
+    .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+    .slice(0, 8);
+
+  return (
+    <div className="min-h-screen bg-[#f8f9ff] font-sans pb-20 sm:pb-0">
       <AppNav />
 
-      <main className="mx-auto max-w-7xl px-3 py-6 sm:px-4 sm:py-8">
-        <div className="no-print mb-6 flex flex-col gap-3 sm:mb-8 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
-          <div className="min-w-0">
-            <h1 className="font-display text-xl font-bold tracking-tight sm:text-2xl md:text-3xl">
-              Generator Surat Jalan
-            </h1>
-            <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-              Satu halaman A4 lanskap berisi dua surat jalan lanskap, siap potong.
-            </p>
-          </div>
-          <div className="grid grid-cols-3 gap-2 sm:flex sm:shrink-0 sm:gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => window.print()}
-              className="justify-center"
-            >
-              <Printer className="h-4 w-4" /> <span className="ml-1 hidden xs:inline">Cetak</span>
-            </Button>
-            <Button variant="outline" size="sm" onClick={saveSuratJalan} className="justify-center">
-              <Save className="h-4 w-4" /> <span className="ml-1 hidden xs:inline">Simpan</span>
-            </Button>
-            <Button size="sm" onClick={downloadPdf} disabled={busy} className="justify-center">
-              <Download className="h-4 w-4" />{" "}
-              <span className="ml-1">{busy ? "…" : "Download"}</span>
-            </Button>
-          </div>
-        </div>
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-8 sm:py-8 space-y-5 sm:space-y-6">
+        <header>
+          <h1 className="text-2xl font-bold tracking-tight text-[#0b1c30] sm:text-3xl">
+            Dashboard
+          </h1>
+          <p className="mt-1 text-[13px] sm:text-sm text-[#5a4138]">
+            Ringkasan surat jalan, nota, dan master data
+          </p>
+        </header>
 
-        <div className="no-print grid gap-4 sm:gap-6 lg:grid-cols-2">
-          <PanelForm
-            title="Surat Atas"
-            data={atas}
-            onChange={setAtas}
-            customers={customers}
-            senders={senders}
-            action={
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setBawah({ ...atas, nomor: bawah.nomor })}
-                className="shrink-0"
-              >
-                <Copy className="h-3.5 w-3.5" /> Salin ke bawah
-              </Button>
-            }
+        <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          <MetricCard
+            label="Total Surat Jalan"
+            value={totalSj.toLocaleString("id-ID") || "0"}
+            description="Dokumen dibuat"
+            iconBg="bg-[#ffdbca]"
+            iconColor="text-[#a33900]"
+            icon={FileText}
           />
-          <PanelForm
-            title="Surat Bawah"
-            data={bawah}
-            onChange={setBawah}
-            customers={customers}
-            senders={senders}
+          <MetricCard
+            label="Total Nota"
+            value={totalNota.toLocaleString("id-ID") || "0"}
+            description="Nota tercatat"
+            iconBg="bg-[#dce9ff]"
+            iconColor="text-[#565e74]"
+            icon={ReceiptText}
           />
-        </div>
+          <MetricCard
+            label="Total Barang"
+            value={totalBarang.toLocaleString("id-ID") || "0"}
+            valueSuffix="Pcs"
+            description="Muatan terkirim"
+            iconBg="bg-[#dae2fd]"
+            iconColor="text-[#565e74]"
+            icon={Package}
+          />
+          <MetricCard
+            label="Total Rp Nota"
+            value={formatRupiah(totalRpNota)}
+            description="Nilai seluruh nota"
+            iconBg="bg-[#dce9ff]"
+            iconColor="text-[#565e74]"
+            icon={Users}
+            valueClassName="whitespace-nowrap text-[clamp(14px,4.4vw,22px)] sm:text-[28px]"
+          />
+        </section>
 
-        <section className="mt-8 sm:mt-10">
-          <div className="no-print mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-            <h2 className="font-display text-xs font-semibold tracking-[0.2em] text-muted-foreground sm:text-sm">
-              PRATINJAU A4 LANSKAP
+        <section className="space-y-2.5">
+          <div className="flex items-center justify-between px-0.5">
+            <h2 className="text-[14px] sm:text-[15px] font-bold text-[#0b1c30] tracking-tight flex items-center gap-1.5">
+              <Zap className="h-[18px] w-[18px] shrink-0 text-[#a33900] sm:h-5 sm:w-5" />
+              Aksi Cepat
             </h2>
-            {bawahKosong && (
-              <p className="text-xs text-muted-foreground">
-                Surat bawah kosong — tidak akan ikut dicetak di PDF.
-              </p>
+            <span className="text-[12px] sm:text-[13px] text-[#5a4138]">Prioritas Input</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
+            <QuickAction
+              to="/surat-jalan"
+              label="Surat Jalan"
+              subtitle="Buat Faktur/SJ Baru"
+              icon={FilePlus2}
+              variant="primary"
+            />
+            <QuickAction
+              to="/nota"
+              label="Buat Nota"
+              subtitle="Tagihan & Tanda Terima"
+              icon={Receipt}
+            />
+            <QuickAction
+              to="/pelanggan"
+              label="Pelanggan"
+              subtitle="Kelola data pelanggan"
+              icon={UserPlus}
+            />
+            <QuickAction
+              to="/pelanggan"
+              label="Pengirim"
+              subtitle="Kelola data pengirim"
+              icon={Truck}
+            />
+          </div>
+        </section>
+
+        <section className="space-y-2.5">
+          <div className="flex items-center justify-between px-0.5">
+            <div>
+              <h2 className="text-[14px] sm:text-[15px] font-bold text-[#0b1c30] tracking-tight flex items-center gap-1.5">
+                <CalendarDays className="h-[18px] w-[18px] shrink-0 text-[#a33900] sm:h-5 sm:w-5" />
+                Laporan Bulan Ini
+              </h2>
+              <p className="text-[12px] sm:text-[13px] text-[#5a4138]">Periode {periodeLabel}</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+            <MetricCard
+              label="Total Nota Bulan Ini"
+              value={monthNotaCount.toLocaleString("id-ID") || "0"}
+              description="Nota bulan berjalan"
+              iconBg="bg-[#dce9ff]"
+              iconColor="text-[#565e74]"
+              icon={ReceiptText}
+            />
+            <MetricCard
+              label="Total Barang Bulan Ini"
+              value={monthBarang.toLocaleString("id-ID") || "0"}
+              valueSuffix="Pcs"
+              description="Muatan bulan berjalan"
+              iconBg="bg-[#dae2fd]"
+              iconColor="text-[#565e74]"
+              icon={Package}
+            />
+            <MetricCard
+              label="Total Rp Nota Bulan Ini"
+              value={formatRupiah(monthRpNota)}
+              description="Nilai nota bulan berjalan"
+              iconBg="bg-[#ffdbca]"
+              iconColor="text-[#a33900]"
+              icon={Wallet}
+            />
+            {monthNotaCount === 0 && (
+              <div className="rounded-xl bg-white p-4 text-center text-[13px] text-[#5a4138] shadow-sm sm:col-span-3">
+                Belum ada transaksi pada bulan ini.
+              </div>
             )}
           </div>
-          <div className="overflow-x-auto rounded-2xl bg-paper-tint p-2 sm:p-4">
-            <SheetPreview sheetRef={sheetRef}>
-              <SuratJalanPanel data={renderAtas} />
-              <SuratJalanPanel data={renderBawah} />
-            </SheetPreview>
+        </section>
+
+        <section className="space-y-2.5">
+          <div className="flex items-center justify-between px-0.5">
+            <div>
+              <h2 className="text-[14px] sm:text-[15px] font-bold text-[#0b1c30] tracking-tight">
+                Aktivitas Dokumen Terbaru
+              </h2>
+              <p className="text-[12px] sm:text-[13px] text-[#5a4138]">
+                Surat jalan dan nota yang baru dibuat
+              </p>
+            </div>
+            <Link
+              to="/laporan"
+              className="text-[13px] font-semibold text-[#a33900] hover:underline flex items-center gap-0.5 py-1"
+            >
+              Lihat Semua
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+          <div className="rounded-xl shadow-sm overflow-hidden p-1.5 sm:p-2 bg-[#f0f4ff] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-1.5">
+            {recentActivity.length > 0 ? (
+              recentActivity.map((item) => (
+                <ActivityItem
+                  key={item.key}
+                  docNumber={item.docNumber}
+                  companyName={item.companyName}
+                  icon={item.icon}
+                  iconBg={item.iconBg}
+                  iconColor={item.iconColor}
+                />
+              ))
+            ) : (
+              <div className="sm:col-span-2 p-4 rounded-lg bg-white text-center text-[13px] text-[#5a4138]">
+                Belum ada dokumen tercatat.
+              </div>
+            )}
           </div>
         </section>
       </main>
-    </div>
-  );
-}
-
-function PanelForm({
-  title,
-  data,
-  onChange,
-  customers,
-  senders,
-  action,
-}: {
-  title: string;
-  data: PanelData;
-  onChange: (d: PanelData) => void;
-  customers: ReturnType<typeof useCustomers>["customers"];
-  senders: ReturnType<typeof useSenders>["senders"];
-  action?: React.ReactNode;
-}) {
-  const set = (k: keyof PanelData) => (v: string) => onChange({ ...data, [k]: v });
-
-  const setItem = (index: number, field: keyof PanelItem, value: string) => {
-    const items = [...data.items];
-    items[index] = { ...items[index], [field]: value };
-    onChange({ ...data, items });
-  };
-
-  const addItem = () => {
-    onChange({ ...data, items: [...data.items, { ...emptyItem }] });
-  };
-
-  const removeItem = (index: number) => {
-    if (data.items.length <= 1) return;
-    const items = data.items.filter((_, i) => i !== index);
-    onChange({ ...data, items });
-  };
-
-  return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="min-w-0 truncate font-display text-base font-bold tracking-wide">{title}</h3>
-        {action}
-      </div>
-
-      <div className="mt-4 space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Pilih Pelanggan / Penerima">
-            <Select
-              value=""
-              onValueChange={(id) => {
-                const c = customers.find((x) => x.id === id);
-                if (c)
-                  onChange({
-                    ...data,
-                    kepada: c.nama,
-                    alamat: c.alamat || "",
-                    telepon: c.telepon || "",
-                  });
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={customers.length ? "Pilih penerima…" : "Belum ada master"}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {customers.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.nama}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field label="Pilih Pengirim">
-            <Select
-              value=""
-              onValueChange={(id) => {
-                const c = senders.find((x) => x.id === id);
-                if (c)
-                  onChange({
-                    ...data,
-                    pengirim: c.nama,
-                    alamatPengirim: c.alamat || "",
-                    teleponPengirim: c.telepon || "",
-                  });
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={senders.length ? "Pilih pengirim…" : "Belum ada pengirim"}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {senders.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.nama}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="No. Surat Jalan (otomatis)">
-            <Input value={data.nomor} readOnly tabIndex={-1} className="bg-muted/50" />
-          </Field>
-          <Field label="Tanggal">
-            <Input
-              type="date"
-              value={data.tanggal}
-              onChange={(e) => set("tanggal")(e.target.value)}
-            />
-          </Field>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Nama Pengirim">
-            <Input value={data.pengirim} onChange={(e) => set("pengirim")(e.target.value)} />
-          </Field>
-          <Field label="No. Telp Pengirim (opsional)">
-            <Input
-              value={data.teleponPengirim}
-              onChange={(e) => set("teleponPengirim")(e.target.value)}
-            />
-          </Field>
-        </div>
-        <Field label="Alamat Pengirim (opsional)">
-          <Textarea
-            rows={2}
-            value={data.alamatPengirim}
-            onChange={(e) => set("alamatPengirim")(e.target.value)}
-          />
-        </Field>
-
-        <Field label="Kepada">
-          <Input value={data.kepada} onChange={(e) => set("kepada")(e.target.value)} />
-        </Field>
-        <Field label="No. Telp Penerima (opsional)">
-          <Input value={data.telepon} onChange={(e) => set("telepon")(e.target.value)} />
-        </Field>
-        <Field label="Alamat Penerima (opsional)">
-          <Textarea rows={2} value={data.alamat} onChange={(e) => set("alamat")(e.target.value)} />
-        </Field>
-
-        <div className="space-y-3">
-          <Label className="text-xs font-medium text-muted-foreground">Barang</Label>
-          {data.items.map((item, index) => (
-            <div key={index} className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-muted-foreground">
-                  Barang {index + 1}
-                </span>
-                {data.items.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-2 text-destructive hover:text-destructive"
-                    onClick={() => removeItem(index)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                )}
-              </div>
-              <div className="grid gap-2 grid-cols-1 sm:grid-cols-[110px_minmax(0,1fr)]">
-                <Field label="Banyaknya">
-                  <Input
-                    value={item.quantity}
-                    placeholder="3 BAL"
-                    onChange={(e) => setItem(index, "quantity", e.target.value)}
-                  />
-                </Field>
-                <Field label="Nama Barang">
-                  <Input
-                    value={item.name}
-                    onChange={(e) => setItem(index, "name", e.target.value)}
-                  />
-                </Field>
-              </div>
-              <Field label="Keterangan Pengiriman (opsional)">
-                <Input
-                  value={item.description}
-                  placeholder="1 BAL isi 40pcs"
-                  onChange={(e) => setItem(index, "description", e.target.value)}
-                />
-              </Field>
-            </div>
-          ))}
-          <Button type="button" variant="outline" size="sm" className="w-full" onClick={addItem}>
-            <Plus className="h-4 w-4" /> Tambah Barang
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="min-w-0 space-y-1.5">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
-      {children}
     </div>
   );
 }

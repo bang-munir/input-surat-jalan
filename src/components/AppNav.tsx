@@ -1,13 +1,15 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { FileText, Users, BarChart3, Receipt } from "lucide-react";
+import { FileText, BarChart3, Receipt, Package, Users } from "lucide-react";
 
 export function AppNav() {
   const path = useRouterState({ select: (s) => s.location.pathname });
+
   const items = [
-    { to: "/", label: "Input Surat", icon: FileText },
+    { to: "/", label: "Dashboard", icon: FileText },
+    { to: "/surat-jalan", label: "Surat Jalan", icon: Package },
     { to: "/laporan", label: "Laporan", icon: BarChart3 },
     { to: "/nota", label: "Nota", icon: Receipt },
-    { to: "/pelanggan", label: "Master", icon: Users },
+    { to: "/pelanggan", label: "Master Data", icon: Users },
   ];
 
   const navLinks = items.map(({ to, label, icon: Icon }) => (

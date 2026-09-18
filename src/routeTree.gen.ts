@@ -14,6 +14,7 @@ import { Route as AuditLocalstorageRouteImport } from './routes/audit-localstora
 import { Route as LaporanRouteImport } from './routes/laporan'
 import { Route as NotaRouteImport } from './routes/nota'
 import { Route as PelangganRouteImport } from './routes/pelanggan'
+import { Route as SuratJalanRouteImport } from './routes/surat-jalan'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,6 +41,11 @@ const PelangganRoute = PelangganRouteImport.update({
   path: '/pelanggan',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SuratJalanRoute = SuratJalanRouteImport.update({
+  id: '/surat-jalan',
+  path: '/surat-jalan',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/laporan': typeof LaporanRoute
   '/nota': typeof NotaRoute
   '/pelanggan': typeof PelangganRoute
+  '/surat-jalan': typeof SuratJalanRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/laporan': typeof LaporanRoute
   '/nota': typeof NotaRoute
   '/pelanggan': typeof PelangganRoute
+  '/surat-jalan': typeof SuratJalanRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,12 +70,25 @@ export interface FileRoutesById {
   '/laporan': typeof LaporanRoute
   '/nota': typeof NotaRoute
   '/pelanggan': typeof PelangganRoute
+  '/surat-jalan': typeof SuratJalanRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/audit-localstorage' | '/laporan' | '/nota' | '/pelanggan'
+  fullPaths:
+    | '/'
+    | '/audit-localstorage'
+    | '/laporan'
+    | '/nota'
+    | '/pelanggan'
+    | '/surat-jalan'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/audit-localstorage' | '/laporan' | '/nota' | '/pelanggan'
+  to:
+    | '/'
+    | '/audit-localstorage'
+    | '/laporan'
+    | '/nota'
+    | '/pelanggan'
+    | '/surat-jalan'
   id:
     | '__root__'
     | '/'
@@ -75,6 +96,7 @@ export interface FileRouteTypes {
     | '/laporan'
     | '/nota'
     | '/pelanggan'
+    | '/surat-jalan'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -83,6 +105,7 @@ export interface RootRouteChildren {
   LaporanRoute: typeof LaporanRoute
   NotaRoute: typeof NotaRoute
   PelangganRoute: typeof PelangganRoute
+  SuratJalanRoute: typeof SuratJalanRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -122,6 +145,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PelangganRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/surat-jalan': {
+      id: '/surat-jalan'
+      path: '/surat-jalan'
+      fullPath: '/surat-jalan'
+      preLoaderRoute: typeof SuratJalanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -131,6 +161,7 @@ const rootRouteChildren: RootRouteChildren = {
   LaporanRoute: LaporanRoute,
   NotaRoute: NotaRoute,
   PelangganRoute: PelangganRoute,
+  SuratJalanRoute: SuratJalanRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
