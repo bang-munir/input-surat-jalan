@@ -11,7 +11,7 @@ export type Customer = {
 };
 
 const customersQueryKey = ["customers"] as const;
-const STALE_TIME = 5 * 60_000;
+const STALE_TIME = 10 * 60_000;
 
 export function useCustomers() {
   const queryClient = useQueryClient();
@@ -30,6 +30,7 @@ export function useCustomers() {
         ...(current ?? []),
         record as unknown as Customer,
       ]);
+      queryClient.invalidateQueries({ queryKey: customersQueryKey, refetchType: "all" });
     },
   });
 
@@ -40,6 +41,7 @@ export function useCustomers() {
       queryClient.setQueryData<Customer[]>(customersQueryKey, (current) =>
         (current ?? []).map((c) => (c.id === vars.id ? { ...c, ...vars.data } : c)),
       );
+      queryClient.invalidateQueries({ queryKey: customersQueryKey, refetchType: "all" });
     },
   });
 
@@ -49,6 +51,7 @@ export function useCustomers() {
       queryClient.setQueryData<Customer[]>(customersQueryKey, (current) =>
         (current ?? []).filter((c) => c.id !== id),
       );
+      queryClient.invalidateQueries({ queryKey: customersQueryKey, refetchType: "all" });
     },
   });
 

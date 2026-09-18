@@ -11,7 +11,7 @@ export type Sender = {
 };
 
 const sendersQueryKey = ["senders"] as const;
-const STALE_TIME = 5 * 60_000;
+const STALE_TIME = 10 * 60_000;
 
 export function useSenders() {
   const queryClient = useQueryClient();
@@ -30,6 +30,7 @@ export function useSenders() {
         ...(current ?? []),
         record as unknown as Sender,
       ]);
+      queryClient.invalidateQueries({ queryKey: sendersQueryKey, refetchType: "all" });
     },
   });
 
@@ -40,6 +41,7 @@ export function useSenders() {
       queryClient.setQueryData<Sender[]>(sendersQueryKey, (current) =>
         (current ?? []).map((s) => (s.id === vars.id ? { ...s, ...vars.data } : s)),
       );
+      queryClient.invalidateQueries({ queryKey: sendersQueryKey, refetchType: "all" });
     },
   });
 
@@ -49,6 +51,7 @@ export function useSenders() {
       queryClient.setQueryData<Sender[]>(sendersQueryKey, (current) =>
         (current ?? []).filter((s) => s.id !== id),
       );
+      queryClient.invalidateQueries({ queryKey: sendersQueryKey, refetchType: "all" });
     },
   });
 

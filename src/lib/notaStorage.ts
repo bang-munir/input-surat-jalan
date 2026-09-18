@@ -26,7 +26,7 @@ export type NotaRecord = {
 };
 
 const notaQueryKey = ["nota"] as const;
-const STALE_TIME = 30_000;
+const STALE_TIME = 60_000;
 
 function generateNomor(records: NotaRecord[]): string {
   const used = new Set(records.map((r) => r.nomor));
@@ -59,6 +59,7 @@ export function useNotaRecords() {
         ...(current ?? []),
         record as unknown as NotaRecord,
       ]);
+      queryClient.invalidateQueries({ queryKey: notaQueryKey, refetchType: "all" });
     },
   });
 
@@ -69,6 +70,7 @@ export function useNotaRecords() {
       queryClient.setQueryData<NotaRecord[]>(notaQueryKey, (current) =>
         (current ?? []).map((r) => (r.id === vars.id ? { ...r, ...vars.data } : r)),
       );
+      queryClient.invalidateQueries({ queryKey: notaQueryKey, refetchType: "all" });
     },
   });
 
@@ -78,6 +80,7 @@ export function useNotaRecords() {
       queryClient.setQueryData<NotaRecord[]>(notaQueryKey, (current) =>
         (current ?? []).filter((r) => r.id !== id),
       );
+      queryClient.invalidateQueries({ queryKey: notaQueryKey, refetchType: "all" });
     },
   });
 

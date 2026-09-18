@@ -169,6 +169,7 @@ function MasterDataPage() {
   const KindIcon = meta.icon;
   const records = kind === "pelanggan" ? customers : senders;
   const loaded = kind === "pelanggan" ? customersLoaded : sendersLoaded;
+  const hasData = records.length > 0 || loaded;
   const filtered = records.filter((c) =>
     `${c.nama} ${c.alamat} ${c.telepon}`.toLowerCase().includes(q.toLowerCase()),
   );
@@ -334,13 +335,13 @@ function MasterDataPage() {
             </div>
           </div>
 
-          {!loaded && (
+          {!hasData && (
             <div className="mt-6 rounded-2xl border border-dashed border-border/70 bg-white/60 p-10 text-center text-sm text-[#5a4138]">
               Memuat data…
             </div>
           )}
 
-          {loaded && filtered.length === 0 && (
+          {hasData && filtered.length === 0 && (
             <div className="mt-6 rounded-2xl border border-dashed border-border/70 bg-white/60 p-10 text-center">
               <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#eef3ff] text-[#a33900]">
                 {q ? <Search className="h-5 w-5" /> : <KindIcon className="h-5 w-5" />}
@@ -354,7 +355,7 @@ function MasterDataPage() {
             </div>
           )}
 
-          {loaded && filtered.length > 0 && (
+          {hasData && filtered.length > 0 && (
             <div className="mt-6">
               <div className="hidden overflow-hidden rounded-2xl border border-border/70 bg-white shadow-sm md:block">
                 <table className="w-full border-collapse text-left text-sm">

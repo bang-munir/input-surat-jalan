@@ -285,6 +285,7 @@ function MobileActionButton({
 function NotaPage() {
   const { records: sjRecords } = useSuratJalanRecords();
   const { records: notas, loaded, addRecord, updateRecord, removeRecord } = useNotaRecords();
+  const hasData = notas.length > 0 || loaded;
 
   const [view, setView] = useState<View>("list");
   const [selected, setSelected] = useState<NotaRecord | null>(null);
@@ -537,13 +538,13 @@ function NotaPage() {
             </div>
           )}
 
-          {!loaded && (
+          {!hasData && (
             <div className="rounded-2xl border border-dashed border-border/70 bg-white/60 p-10 text-center text-sm text-[#5a4138]">
               Memuat data…
             </div>
           )}
 
-          {loaded && notas.length === 0 && (
+          {hasData && notas.length === 0 && (
             <div className="rounded-2xl border border-dashed border-border/70 bg-white/60 p-10 text-center">
               <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#eef3ff] text-[#a33900]">
                 <FileText className="h-5 w-5" />
@@ -555,7 +556,7 @@ function NotaPage() {
             </div>
           )}
 
-          {loaded && notas.length > 0 && sorted.length === 0 && (
+          {hasData && notas.length > 0 && sorted.length === 0 && (
             <div className="rounded-2xl border border-dashed border-border/70 bg-white/60 p-10 text-center">
               <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#eef3ff] text-[#a33900]">
                 {q || isFilterActive ? (
@@ -575,7 +576,7 @@ function NotaPage() {
             </div>
           )}
 
-          {loaded && sorted.length > 0 && (
+          {hasData && sorted.length > 0 && (
             <>
               <div className="hidden overflow-hidden rounded-2xl border border-border/70 bg-white shadow-sm md:block">
                 <table className="w-full border-collapse text-left text-sm">

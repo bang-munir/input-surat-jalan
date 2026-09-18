@@ -1,8 +1,50 @@
 import { Link, useRouterState } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
 import { FileText, BarChart3, Receipt, Package, Users } from "lucide-react";
+import { fetchCustomers } from "@/lib/customers.server";
+import { fetchSenders } from "@/lib/senders.server";
+import { fetchSuratJalan } from "@/lib/suratJalanStorage.server";
+import { fetchNota } from "@/lib/notaStorage.server";
+import type { Customer } from "@/lib/customers";
+import type { Sender } from "@/lib/senders";
+import type { SuratJalanRecord } from "@/lib/suratJalanStorage";
+import type { NotaRecord } from "@/lib/notaStorage";
 
 export function AppNav() {
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const queryClient = useQueryClient();
+
+  const prefetchCustomers = useCallback(() => {
+    queryClient.prefetchQuery({
+      queryKey: ["customers"],
+      queryFn: () => fetchCustomers() as unknown as Promise<Customer[]>,
+      staleTime: 10 * 60_000,
+    });
+  }, [queryClient]);
+
+  const prefetchSuratJalan = useCallback(() => {
+    queryClient.prefetchQuery({
+      queryKey: ["surat-jalan"],
+      queryFn: async () => (await fetchSuratJalan()) as unknown as SuratJalanRecord[],
+      staleTime: 60_000,
+    });
+  }, [queryClient]);
+
+  const prefetchNota = useCallback(() => {
+    queryClient.prefetchQuery({
+      queryKey: ["nota"],
+      queryFn: async () => (await fetchNota()) as unknown as NotaRecord[],
+      staleTime: 60_000,
+    });
+  }, [queryClient]);
+
+  const prefetchMap: Record<string, () => void> = {
+    "/pelanggan": prefetchCustomers,
+    "/surat-jalan": prefetchCustomers,
+    "/laporan": prefetchSuratJalan,
+    "/nota": prefetchNota,
+  };
 
   const items = [
     { to: "/", label: "Dashboard", icon: FileText },
@@ -16,6 +58,8 @@ export function AppNav() {
     <Link
       key={to}
       to={to}
+      preload="intent"
+      onMouseEnter={prefetchMap[to]}
       className={`flex flex-1 flex-col items-center gap-0.5 rounded-lg py-1.5 text-[10px] font-medium transition-colors sm:flex-row sm:flex-none sm:gap-2 sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-sm ${
         path === to ? "text-ink" : "text-muted-foreground hover:text-foreground"
       }`}
@@ -47,6 +91,8 @@ export function AppNav() {
             <Link
               key={to}
               to={to}
+              preload="intent"
+              onMouseEnter={prefetchMap[to]}
               className={`flex flex-1 flex-col items-center gap-0.5 py-1.5 text-[10px] font-medium transition-colors ${
                 path === to ? "text-ink" : "text-muted-foreground"
               }`}

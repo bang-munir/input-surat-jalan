@@ -28,7 +28,7 @@ export type SuratJalanRecord = {
 };
 
 const suratJalanQueryKey = ["surat-jalan"] as const;
-const STALE_TIME = 30_000;
+const STALE_TIME = 60_000;
 
 export function useSuratJalanRecords() {
   const queryClient = useQueryClient();
@@ -47,6 +47,7 @@ export function useSuratJalanRecords() {
         ...(current ?? []),
         record as unknown as SuratJalanRecord,
       ]);
+      queryClient.invalidateQueries({ queryKey: suratJalanQueryKey, refetchType: "all" });
     },
   });
 
@@ -59,6 +60,7 @@ export function useSuratJalanRecords() {
       queryClient.setQueryData<SuratJalanRecord[]>(suratJalanQueryKey, (current) =>
         (current ?? []).map((r) => (r.id === vars.id ? { ...r, ...vars.data } : r)),
       );
+      queryClient.invalidateQueries({ queryKey: suratJalanQueryKey, refetchType: "all" });
     },
   });
 
@@ -68,6 +70,7 @@ export function useSuratJalanRecords() {
       queryClient.setQueryData<SuratJalanRecord[]>(suratJalanQueryKey, (current) =>
         (current ?? []).filter((r) => r.id !== id),
       );
+      queryClient.invalidateQueries({ queryKey: suratJalanQueryKey, refetchType: "all" });
     },
   });
 
