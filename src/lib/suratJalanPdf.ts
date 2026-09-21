@@ -178,13 +178,7 @@ export function drawSlip(pdf: jsPDF, data: SlipData, offsetY: number) {
     pdf.text(item.quantity || "", ml + colW / 2, rowY + 5, { align: "center" });
     pdf.setFont("helvetica", "normal");
     const barangLines = pdf.splitTextToSize(item.name || "", mr - ml - colW - 10) as string[];
-    pdf.text(barangLines.slice(0, 2), ml + colW + 5, rowY + 4);
-    if (has(item.description)) {
-      pdf.setFont("helvetica", "italic");
-      pdf.setFontSize(6.5);
-      const descLines = pdf.splitTextToSize(item.description, mr - ml - colW - 10) as string[];
-      pdf.text(descLines.slice(0, 1), ml + colW + 5, rowY + 7.5);
-    }
+    pdf.text(barangLines.slice(0, 2), ml + colW + 5, rowY + 5);
   }
 
   const sTop = y(100) + shift;
@@ -214,14 +208,10 @@ export function drawSlip(pdf: jsPDF, data: SlipData, offsetY: number) {
     pdf.text("KETERANGAN PENGIRIMAN", ml, kY);
     let descY = kY + 3.5;
     for (const item of itemsWithDesc) {
-      pdf.setFont("helvetica", "bold");
+      pdf.setFont("helvetica", "italic");
       pdf.setFontSize(7);
       pdf.setTextColor(...INK);
-      const itemName = item.name || "-";
-      pdf.text(itemName, ml, descY);
-      pdf.setFont("helvetica", "bolditalic");
-      pdf.setFontSize(7.5);
-      pdf.text(' "' + item.description + '"', ml + pdf.getTextWidth(itemName) + 1, descY);
+      pdf.text('"' + item.description + '"', ml, descY);
       descY += 4;
     }
   }

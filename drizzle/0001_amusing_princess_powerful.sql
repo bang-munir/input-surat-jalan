@@ -1,0 +1,1 @@
+ALTER TABLE "nota" ALTER COLUMN "surat_jalan_id" DROP NOT NULL;

@@ -99,7 +99,6 @@ export const nota = pgTable(
     nomor: text("nomor").notNull(),
     tanggal: text("tanggal").notNull(),
     suratJalanId: uuid("surat_jalan_id")
-      .notNull()
       .references(() => suratJalan.id, {
         onDelete: "restrict",
         onUpdate: "cascade",

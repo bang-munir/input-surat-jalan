@@ -14,10 +14,12 @@ export type NotaRecord = {
   id: string;
   nomor: string;
   tanggal: string;
-  suratJalanId: string;
+  suratJalanId: string | null;
   suratJalanNomor: string;
   pengirim: string;
   penerima: string;
+  alamat: string;
+  telepon: string;
   items: NotaItem[];
   subtotal: number;
   potong: number;

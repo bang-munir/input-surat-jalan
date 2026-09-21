@@ -12,6 +12,8 @@ export const fetchNota = createServerFn({ method: "GET" }).handler(async () => {
   return result.map((n) => ({
     ...n,
     items: n.items.sort((a, b) => a.sortOrder - b.sortOrder),
+    alamat: "",
+    telepon: "",
     createdAt: n.createdAt.toISOString(),
   }));
 });
@@ -35,10 +37,12 @@ export const addNota = createServerFn({ method: "POST" })
     (data: {
       nomor: string;
       tanggal: string;
-      suratJalanId: string;
+      suratJalanId: string | null;
       suratJalanNomor: string;
       pengirim: string;
       penerima: string;
+      alamat?: string;
+      telepon?: string;
       items: { quantity: string; name: string; description: string; price: number; total: number }[];
       subtotal: number;
       potong: number;
@@ -52,7 +56,7 @@ export const addNota = createServerFn({ method: "POST" })
         .values({
           nomor: data.nomor,
           tanggal: data.tanggal,
-          suratJalanId: data.suratJalanId,
+          suratJalanId: data.suratJalanId || null,
           suratJalanNomor: data.suratJalanNomor,
           pengirim: data.pengirim,
           penerima: data.penerima,
@@ -75,7 +79,7 @@ export const addNota = createServerFn({ method: "POST" })
         });
       }
 
-      return { ...inserted, items: data.items, createdAt: inserted.createdAt.toISOString() };
+      return { ...inserted, items: data.items, alamat: data.alamat || "", telepon: data.telepon || "", createdAt: inserted.createdAt.toISOString() };
     });
   });
 
@@ -87,6 +91,8 @@ export const updateNota = createServerFn({ method: "POST" })
       tanggal: string;
       pengirim: string;
       penerima: string;
+      alamat?: string;
+      telepon?: string;
       items: { quantity: string; name: string; description: string; price: number; total: number }[];
       subtotal: number;
       potong: number;

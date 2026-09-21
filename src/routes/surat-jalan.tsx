@@ -10,6 +10,8 @@ import {
   Package,
   Plus,
   Save,
+  Search,
+  ShoppingCart,
   Trash2,
   Truck,
   User,
@@ -48,6 +50,7 @@ import { cn } from "@/lib/utils";
 import { useCustomers } from "@/lib/customers";
 import { useSenders } from "@/lib/senders";
 import { useSuratJalanRecords } from "@/lib/suratJalanStorage";
+import { useBukuPoOrders, useBukuPoOrderDetail, useBukuPoCustomers } from "@/lib/bukuPo";
 import { buildSuratJalanPdf, type SlipData } from "@/lib/suratJalanPdf";
 import { downloadPdf as saveGeneratedPdf } from "@/lib/pdfDownload";
 
@@ -268,6 +271,9 @@ function GeneratorPage() {
   const [saving, setSaving] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [poDialogOpen, setPoDialogOpen] = useState(false);
+  const [selectedPoId, setSelectedPoId] = useState<string | null>(null);
+  const [poSearch, setPoSearch] = useState("");
 
   useEffect(() => {
     setForm((prev) => ({ ...prev, nomor: generateNomor(), tanggal: todayISO() }));
@@ -278,6 +284,60 @@ function GeneratorPage() {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
   }, [previewUrl]);
+
+  const { orders: poOrders, loading: poLoading, error: poQueryError } = useBukuPoOrders();
+  const { order: poDetail, loading: poDetailLoading } = useBukuPoOrderDetail(selectedPoId);
+  const { customers: bukuPoCustomers } = useBukuPoCustomers();
+
+  const poError = poQueryError !== null;
+
+  const poList = useMemo(() => {
+    const q = poSearch.trim().toLocaleLowerCase("id-ID");
+    if (!q) return poOrders;
+    return poOrders.filter(
+      (po) =>
+        po.invoiceNumber.toLocaleLowerCase("id-ID").includes(q) ||
+        po.customerName.toLocaleLowerCase("id-ID").includes(q) ||
+        po.customerAddress.toLocaleLowerCase("id-ID").includes(q),
+    );
+  }, [poOrders, poSearch]);
+
+  const handleSelectPo = (po: (typeof poOrders)[number]) => {
+    setSelectedPoId(po.id);
+  };
+
+  const prefilledFromPo = useRef(false);
+
+  useEffect(() => {
+    if (!poDetail || !selectedPoId) return;
+    if (prefilledFromPo.current) return;
+    prefilledFromPo.current = true;
+
+    const items: PanelItem[] =
+      poDetail.items.length > 0
+        ? poDetail.items.map((item) => ({
+            quantity: String(item.quantity),
+            name: item.name,
+            description: "",
+          }))
+        : [{ ...emptyItem }];
+
+    const matchedCustomer = bukuPoCustomers.find((c) => c.id === poDetail.customerId);
+
+    setForm((prev) => ({
+      ...prev,
+      kepada: poDetail.customerName,
+      alamat: poDetail.customerAddress,
+      telepon: matchedCustomer?.phone || "",
+      pengirim: poDetail.senderName || prev.pengirim,
+      teleponPengirim: poDetail.senderPhone || prev.teleponPengirim,
+      items,
+    }));
+
+    toast.success(`PO ${poDetail.invoiceNumber} dipilih — form terisi`);
+    setPoDialogOpen(false);
+    setSelectedPoId(null);
+  }, [poDetail, selectedPoId]);
 
   const renderSlip = useMemo(() => ({ ...form, tanggal: formatTanggal(form.tanggal) }), [form]);
 
@@ -336,6 +396,7 @@ function GeneratorPage() {
   const resetForm = () => {
     const today = todayISO();
     setForm({ ...basePanel, nomor: generateNomor(), tanggal: today, items: [{ ...emptyItem }] });
+    prefilledFromPo.current = false;
   };
 
   const confirmSave = async () => {
@@ -370,6 +431,19 @@ function GeneratorPage() {
               </h1>
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  prefilledFromPo.current = false;
+                  setPoSearch("");
+                  setPoDialogOpen(true);
+                }}
+                className="h-11 rounded-lg border-0 bg-[#e5eeff] text-[#0b1c30] hover:bg-[#d8e6ff]"
+              >
+                <ShoppingCart className="h-4 w-4" />
+                <span>Pilih PO</span>
+              </Button>
               <Button
                 onClick={openPreview}
                 disabled={previewBusy}
@@ -468,6 +542,93 @@ function GeneratorPage() {
                     <Save className="h-4 w-4" />
                   )}
                   Simpan
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={poDialogOpen} onOpenChange={setPoDialogOpen}>
+            <DialogContent className="flex h-[80vh] w-[95vw] max-w-[800px] flex-col gap-0 overflow-hidden p-0">
+              <DialogHeader className="shrink-0 border-b border-border/70 px-4 py-3 text-left sm:px-6">
+                <DialogTitle className="text-[15px] font-bold tracking-tight text-[#0b1c30]">
+                  Pilih PO dari Buku-Po
+                </DialogTitle>
+                <DialogDescription className="text-[13px] text-muted-foreground">
+                  Pilih Purchase Order untuk mengisi data Surat Jalan.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="shrink-0 border-b border-border/70 px-4 py-3 sm:px-6">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={poSearch}
+                    onChange={(e) => setPoSearch(e.target.value)}
+                    placeholder="Cari nomor PO atau nama pelanggan..."
+                    className={cn(inputStitch, "pl-9 pr-3")}
+                  />
+                </div>
+              </div>
+              <div className="min-h-0 flex-1 overflow-auto">
+                {selectedPoId && poDetailLoading ? (
+                  <div className="flex items-center justify-center gap-2 p-6 text-[13px] text-[#5a4138]">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Memuat detail PO...
+                  </div>
+                ) : poLoading ? (
+                  <div className="space-y-2 p-4">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                  </div>
+                ) : poError ? (
+                  <div className="p-6 text-center text-[13px] text-destructive">
+                    Gagal memuat data PO. Silakan coba lagi.
+                  </div>
+                ) : poList.length === 0 ? (
+                  <div className="p-6 text-center text-[13px] text-muted-foreground">
+                    Tidak ada data PO tersedia.
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                    {poList.map((po) => (
+                      <button
+                        key={po.id}
+                        type="button"
+                        disabled={selectedPoId === po.id && poDetailLoading}
+                        onClick={() => handleSelectPo(po)}
+                        className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-[#eff4ff] disabled:opacity-50"
+                      >
+                        <div className="mt-0.5 shrink-0 rounded-md bg-[#dce9ff] p-1.5">
+                          <FileText className="h-4 w-4 text-[#3f465c]" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-[#0b1c30]">{po.invoiceNumber}</span>
+                            <Badge variant="secondary" className="rounded-full border-0 bg-[#e5eeff] text-[11px] text-[#5a4138]">
+                              {po.status}
+                            </Badge>
+                            {selectedPoId === po.id && poDetailLoading && (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin text-[#a33900]" />
+                            )}
+                          </div>
+                          <p className="mt-0.5 text-[13px] text-[#5a4138]">{po.customerName}</p>
+                          {po.customerAddress && (
+                            <p className="mt-0.5 text-[12px] text-muted-foreground line-clamp-1">{po.customerAddress}</p>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <DialogFooter className="shrink-0 gap-2 border-t border-border/70 px-4 py-3 sm:justify-end sm:space-x-0 sm:px-6">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setPoDialogOpen(false)}
+                  className="h-11 rounded-lg border-0 bg-[#e5eeff] text-[#0b1c30] hover:bg-[#d8e6ff]"
+                >
+                  Batal
                 </Button>
               </DialogFooter>
             </DialogContent>
