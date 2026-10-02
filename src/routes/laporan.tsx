@@ -74,11 +74,12 @@ function parseTanggalToYMD(tanggal: string): string | null {
   if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
   const parts = tanggal.split(" ");
   if (parts.length === 3) {
-    const [, monthName, yearStr] = parts;
+    const [dayStr, monthName, yearStr] = parts;
     const monthNum = ID_MONTHS[(monthName ?? "").toLowerCase()];
+    const day = Number(dayStr);
     const year = Number(yearStr);
-    if (monthNum && year >= 2000 && year <= 2100) {
-      return `${year}-${String(monthNum).padStart(2, "0")}`;
+    if (monthNum && day >= 1 && day <= 31 && year >= 2000 && year <= 2100) {
+      return `${year}-${String(monthNum).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
     }
   }
   return null;
@@ -288,7 +289,7 @@ function LaporanPage() {
   const handleStartEdit = (record: SuratJalanRecord) => {
     setEditingId(record.id);
     setEditForm({
-      tanggal: record.tanggal || "",
+      tanggal: parseTanggalToYMD(record.tanggal ?? "") ?? "",
       pengirim: record.pengirim || "",
       teleponPengirim: record.teleponPengirim || "",
       alamatPengirim: record.alamatPengirim || "",
@@ -316,25 +317,7 @@ function LaporanPage() {
       toast.success("Surat Jalan diperbarui");
       closeEdit();
     } catch {
-      let nomorNota: string[] = [];
-      try {
-        nomorNota = await fetchNotaNumbersBySuratJalan({ data: deleteTarget.id });
-      } catch {
-        // abaikan — fallback ke pesan generik
-      }
-      if (nomorNota.length === 1) {
-        toast.error(
-          `Surat Jalan ${deleteTarget.nomor} masih digunakan oleh Nota ${nomorNota[0]}. Hapus Nota tersebut terlebih dahulu.`,
-        );
-      } else if (nomorNota.length > 1) {
-        toast.error(
-          `Surat Jalan ${deleteTarget.nomor} masih digunakan oleh Nota ${nomorNota.join(", ")}. Hapus Nota tersebut terlebih dahulu.`,
-        );
-      } else {
-        toast.error("Gagal menghapus Surat Jalan");
-      }
-      // Tutup dialog otomatis di semua jalur gagal agar user tidak perlu menekan Batal
-      setDeleteTarget(null);
+      toast.error("Gagal memperbarui Surat Jalan");
     } finally {
       setBusy(false);
     }

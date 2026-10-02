@@ -110,6 +110,9 @@ function isEmptySlip(d: PanelData) {
 
 type MasterListItem = { id: string; nama: string; alamat: string; telepon: string };
 
+/** Referensi PO Buku-PO yang dipakai sebagai sumber data Surat Jalan ini. */
+type PoRef = { orderId: string; invoiceNumber: string };
+
 function MasterAutocomplete({
   items,
   loading,
@@ -273,6 +276,7 @@ function GeneratorPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [poDialogOpen, setPoDialogOpen] = useState(false);
   const [selectedPoId, setSelectedPoId] = useState<string | null>(null);
+  const [poRef, setPoRef] = useState<PoRef | null>(null);
   const [poSearch, setPoSearch] = useState("");
 
   useEffect(() => {
@@ -311,6 +315,9 @@ function GeneratorPage() {
   useEffect(() => {
     if (!poDetail || !selectedPoId) return;
     if (prefilledFromPo.current) return;
+    // `placeholderData` menahan detail PO sebelumnya; tunggu sampai detail yang
+    // dipakai benar-benar milik PO yang baru dipilih.
+    if (poDetail.id !== selectedPoId) return;
     prefilledFromPo.current = true;
 
     const items: PanelItem[] =
@@ -333,6 +340,8 @@ function GeneratorPage() {
       teleponPengirim: poDetail.senderPhone || prev.teleponPengirim,
       items,
     }));
+
+    setPoRef({ orderId: poDetail.id, invoiceNumber: poDetail.invoiceNumber });
 
     toast.success(`PO ${poDetail.invoiceNumber} dipilih — form terisi`);
     setPoDialogOpen(false);
@@ -389,6 +398,8 @@ function GeneratorPage() {
       kepada: form.kepada,
       telepon: form.telepon,
       alamat: form.alamat,
+      orderId: poRef?.orderId ?? null,
+      invoiceNumber: poRef?.invoiceNumber ?? null,
       items: form.items,
     });
   };
@@ -396,6 +407,7 @@ function GeneratorPage() {
   const resetForm = () => {
     const today = todayISO();
     setForm({ ...basePanel, nomor: generateNomor(), tanggal: today, items: [{ ...emptyItem }] });
+    setPoRef(null);
     prefilledFromPo.current = false;
   };
 
@@ -458,6 +470,17 @@ function GeneratorPage() {
               </Button>
             </div>
           </div>
+
+          {poRef && (
+            <div className="no-print mb-4 flex justify-end">
+              <Badge
+                variant="secondary"
+                className="rounded-full border-0 bg-[#e5eeff] text-[11px] text-[#5a4138]"
+              >
+                Dari PO: {poRef.invoiceNumber}
+              </Badge>
+            </div>
+          )}
 
           <PanelForm
             data={form}

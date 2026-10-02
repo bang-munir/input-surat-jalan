@@ -60,6 +60,12 @@ export const suratJalan = pgTable(
     kepada: text("kepada").notNull().default(""),
     telepon: text("telepon").notNull().default(""),
     alamat: text("alamat").notNull().default(""),
+    // Referensi PO Buku-PO (https://www.buku-po.my.id/api/orders) saat Surat Jalan
+    // dibuat dari PO. Type text, bukan uuid, karena order.id berformat
+    // "ord_<epoch>_<suffix>". Tanpa FK: PO ada di sistem eksternal, bukan tabel
+    // lokal. Nullable: Surat Jalan manual dan Surat Jalan lama tidak punya PO.
+    orderId: text("order_id"),
+    invoiceNumber: text("invoice_number"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({

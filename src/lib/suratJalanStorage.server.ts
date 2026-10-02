@@ -26,6 +26,8 @@ export const addSuratJalan = createServerFn({ method: "POST" })
       kepada: string;
       telepon: string;
       alamat: string;
+      orderId?: string | null;
+      invoiceNumber?: string | null;
       items: { quantity: string; name: string; description: string }[];
     }) => data,
   )
@@ -42,6 +44,8 @@ export const addSuratJalan = createServerFn({ method: "POST" })
           kepada: data.kepada,
           telepon: data.telepon,
           alamat: data.alamat,
+          orderId: data.orderId || null,
+          invoiceNumber: data.invoiceNumber || null,
         })
         .returning();
 
@@ -81,6 +85,8 @@ export const updateSuratJalan = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     return await db.transaction(async (tx) => {
+      // order_id / invoice_number sengaja tidak ada di .set(): form edit di
+      // /laporan tidak mengirim referensi PO, jadi kolomnya harus tetap utuh.
       await tx
         .update(suratJalan)
         .set({

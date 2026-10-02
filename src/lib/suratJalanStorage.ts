@@ -23,6 +23,10 @@ export type SuratJalanRecord = {
   kepada: string;
   telepon: string;
   alamat: string;
+  /** Referensi PO Buku-PO. Null untuk Surat Jalan manual dan Surat Jalan lama. */
+  orderId?: string | null;
+  /** Snapshot nomor invoice PO, supaya tampilan tidak bergantung pada API. */
+  invoiceNumber?: string | null;
   items: SuratJalanItem[];
   createdAt: string;
 };

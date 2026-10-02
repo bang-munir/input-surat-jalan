@@ -187,10 +187,13 @@ function computeTotals(items: NotaItem[]) {
   return subtotal;
 }
 
+// Pemisah ribuan memakai titik agar sama dengan formatRupiah/formatRp ("Rp 65.000").
+// Semua pemanggilnya hanya membaca digit (`replace(/\D/g, "")`), jadi separator tidak
+// memengaruhi parsing nilai harga maupun Potong/DP.
 function formatPotong(digits: string): string {
   const clean = digits.replace(/[^\d]/g, "").replace(/^0+(?=\d)/, "");
   if (clean === "") return "";
-  return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return clean.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 }
 
 function caretInFormattedText(formatted: string, digitsBeforeCaret: number): number {
@@ -1112,6 +1115,122 @@ function CreateNota({
   const [poDialogOpen, setPoDialogOpen] = useState(false);
   const [alamat, setAlamat] = useState("");
   const [telepon, setTelepon] = useState("");
+  const [autoPriceNote, setAutoPriceNote] = useState<string | null>(null);
+
+  // Referensi PO milik Surat Jalan yang dipilih. Hanya diisi kalau SJ dibuat dari PO.
+  const sjOrderId = selectedSJ?.orderId ?? null;
+  const {
+    order: sjPoDetail,
+    loading: sjPoLoading,
+    error: sjPoError,
+  } = useBukuPoOrderDetail(sjOrderId);
+
+  const autoPriceAppliedRef = useRef(false);
+  const manualPriceIndexesRef = useRef<Set<number>>(new Set());
+  const poPriceErrorNotifiedRef = useRef(false);
+
+  const setItemField = (index: number, field: keyof NotaItem, value: string | number) => {
+    setItems((prev) => {
+      const next = [...prev];
+      const updated = { ...next[index], [field]: value };
+      if (field === "price" || field === "quantity") {
+        const qty = parseQuantity(field === "quantity" ? String(value) : updated.quantity);
+        const price = typeof updated.price === "number" ? updated.price : 0;
+        updated.total = qty * price;
+      }
+      next[index] = updated;
+      return next;
+    });
+  };
+
+  // Harga Nota untuk SJ yang berasal dari PO diambil dari unit_price PO.
+  // SJ tanpa orderId (manual) tidak pernah menyentuh jalur ini.
+  useEffect(() => {
+    if (step !== "form") return;
+    if (!selectedSJ?.orderId) return;
+    if (!sjPoDetail) return;
+    // `placeholderData` menahan detail PO sebelumnya; jangan pakai kalau tidak cocok.
+    if (sjPoDetail.id !== selectedSJ.orderId) return;
+    if (autoPriceAppliedRef.current) return;
+    autoPriceAppliedRef.current = true;
+
+    const poItems = sjPoDetail.items ?? [];
+    const keyOf = (value: string | undefined | null) =>
+      (value ?? "").trim().toLocaleLowerCase("id-ID").replace(/\s+/g, " ");
+
+    const poIndexesByName = new Map<string, number[]>();
+    poItems.forEach((poItem, poIndex) => {
+      const key = keyOf(poItem.name);
+      const bucket = poIndexesByName.get(key);
+      if (bucket) bucket.push(poIndex);
+      else poIndexesByName.set(key, [poIndex]);
+    });
+
+    const sameLength = items.length === poItems.length;
+    const usedPoIndexes = new Set<number>();
+    let filled = 0;
+
+    const next = items.map((item, index) => {
+      if (manualPriceIndexesRef.current.has(index)) return item;
+      const key = keyOf(item.name);
+      if (!key) return item;
+
+      const candidates = (poIndexesByName.get(key) ?? []).filter((i) => !usedPoIndexes.has(i));
+      let poIndex = -1;
+
+      if (candidates.length === 1) {
+        poIndex = candidates[0] ?? -1;
+      } else if (
+        candidates.length > 1 &&
+        sameLength &&
+        !usedPoIndexes.has(index) &&
+        keyOf(poItems[index]?.name) === key
+      ) {
+        // Nama PO sama beberapa baris: pakai posisi hanya kalau urutan item SJ
+        // sama dengan urutan item PO (prefill Surat Jalan dari PO memakai urutan PO).
+        poIndex = index;
+      }
+
+      const poItem = poIndex < 0 ? undefined : poItems[poIndex];
+      if (!poItem) return item;
+
+      const price = parseInt(poItem.unitPrice, 10) || 0;
+      if (!price) return item;
+
+      usedPoIndexes.add(poIndex);
+      filled += 1;
+      // Qty tetap mengikuti Surat Jalan, harga mengikuti unit_price PO.
+      const qty = parseQuantity(item.quantity);
+      return { ...item, price, total: qty * price };
+    });
+
+    if (filled === 0) {
+      setAutoPriceNote(null);
+      return;
+    }
+
+    setItems(next);
+    setPriceTexts((prev) =>
+      next.map((item, index) => {
+        if (manualPriceIndexesRef.current.has(index)) return prev[index] ?? "";
+        return item.price ? formatPotong(String(item.price)) : "";
+      }),
+    );
+    setAutoPriceNote(sjPoDetail.invoiceNumber);
+    toast.success(
+      `${filled} barang terisi harga dari PO ${sjPoDetail.invoiceNumber} — harga masih bisa diubah`,
+    );
+  }, [step, selectedSJ, sjPoDetail, items]);
+
+  useEffect(() => {
+    if (step !== "form") return;
+    if (!selectedSJ?.orderId) return;
+    if (!sjPoError) return;
+    if (poPriceErrorNotifiedRef.current) return;
+    poPriceErrorNotifiedRef.current = true;
+    setAutoPriceNote(null);
+    toast.error("Detail PO gagal dimuat — isi harga nota secara manual");
+  }, [step, selectedSJ?.orderId, sjPoError]);
 
   if (step === "select") {
     return (
@@ -1121,6 +1240,10 @@ function CreateNota({
           onBack={onBack}
           onPickPo={() => setPoDialogOpen(true)}
           onSelect={(sj) => {
+            autoPriceAppliedRef.current = false;
+            manualPriceIndexesRef.current = new Set();
+            poPriceErrorNotifiedRef.current = false;
+            setAutoPriceNote(null);
             setSelectedSJ(sj);
             setItems(
               sj.items.map((it) => ({
@@ -1140,6 +1263,10 @@ function CreateNota({
           open={poDialogOpen}
           onOpenChange={setPoDialogOpen}
           onSelect={(po) => {
+            autoPriceAppliedRef.current = true;
+            manualPriceIndexesRef.current = new Set();
+            poPriceErrorNotifiedRef.current = false;
+            setAutoPriceNote(null);
             setSelectedSJ(null);
             setSelectedPo({
               invoiceNumber: po.invoiceNumber,
@@ -1172,20 +1299,6 @@ function CreateNota({
       </>
     );
   }
-
-  const setItemField = (index: number, field: keyof NotaItem, value: string | number) => {
-    setItems((prev) => {
-      const next = [...prev];
-      const updated = { ...next[index], [field]: value };
-      if (field === "price" || field === "quantity") {
-        const qty = parseQuantity(field === "quantity" ? String(value) : updated.quantity);
-        const price = typeof updated.price === "number" ? updated.price : 0;
-        updated.total = qty * price;
-      }
-      next[index] = updated;
-      return next;
-    });
-  };
 
   const handlePotongChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const el = e.target;
@@ -1220,6 +1333,7 @@ function CreateNota({
     const digits = el.value.replace(/\D/g, "");
     const formatted = formatPotong(digits);
     const digitsBeforeCaret = el.value.slice(0, caret).replace(/\D/g, "").length;
+    manualPriceIndexesRef.current.add(index);
     setPriceTexts((prev) => {
       const next = [...prev];
       next[index] = formatted;
@@ -1265,6 +1379,14 @@ function CreateNota({
                     ? `Berdasarkan PO ${selectedPo.invoiceNumber}`
                     : ""}
               </p>
+              {sjPoLoading && (
+                <p className="mt-1 text-[12px] text-[#5a4138]">Memuat harga dari PO…</p>
+              )}
+              {autoPriceNote && (
+                <p className="mt-1 text-[12px] text-[#5a4138]">
+                  Harga diisi otomatis dari PO {autoPriceNote} — harga masih bisa diubah.
+                </p>
+              )}
             </div>
           </div>
 
