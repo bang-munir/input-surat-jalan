@@ -15,6 +15,7 @@ export type SuratJalanItem = {
 
 export type SuratJalanRecord = {
   id: string;
+  /** Dihasilkan server saat disimpan; client tidak pernah menentukan nomor. */
   nomor: string;
   tanggal: string;
   pengirim: string;
@@ -45,7 +46,8 @@ export function useSuratJalanRecords() {
   });
 
   const addMutation = useMutation({
-    mutationFn: (data: Omit<SuratJalanRecord, "id" | "createdAt">) => addSuratJalan({ data }),
+    mutationFn: (data: Omit<SuratJalanRecord, "id" | "createdAt" | "nomor">) =>
+      addSuratJalan({ data }),
     onSuccess: (record) => {
       queryClient.setQueryData<SuratJalanRecord[]>(suratJalanQueryKey, (current) => [
         ...(current ?? []),
@@ -82,7 +84,7 @@ export function useSuratJalanRecords() {
   const loaded = query.isSuccess;
 
   const addRecord = useCallback(
-    (data: Omit<SuratJalanRecord, "id" | "createdAt">) => addMutation.mutateAsync(data),
+    (data: Omit<SuratJalanRecord, "id" | "createdAt" | "nomor">) => addMutation.mutateAsync(data),
     [addMutation],
   );
   const updateRecord = useCallback(

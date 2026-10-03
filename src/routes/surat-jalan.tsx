@@ -49,7 +49,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useCustomers } from "@/lib/customers";
 import { useSenders } from "@/lib/senders";
-import { useSuratJalanRecords } from "@/lib/suratJalanStorage";
+import { useSuratJalanRecords, type SuratJalanRecord } from "@/lib/suratJalanStorage";
 import { useBukuPoOrders, useBukuPoOrderDetail, useBukuPoCustomers } from "@/lib/bukuPo";
 import { buildSuratJalanPdf, type SlipData } from "@/lib/suratJalanPdf";
 import { downloadPdf as saveGeneratedPdf } from "@/lib/pdfDownload";
@@ -81,11 +81,6 @@ function formatTanggal(iso: string) {
   const d = new Date(iso + "T00:00:00");
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
-}
-
-function generateNomor() {
-  const digits = Math.floor(1000 + Math.random() * 9000).toString();
-  return `SJ-${digits}`;
 }
 
 const emptyItem: PanelItem = { quantity: "", name: "", description: "" };
@@ -280,7 +275,7 @@ function GeneratorPage() {
   const [poSearch, setPoSearch] = useState("");
 
   useEffect(() => {
-    setForm((prev) => ({ ...prev, nomor: generateNomor(), tanggal: todayISO() }));
+    setForm((prev) => ({ ...prev, tanggal: todayISO() }));
   }, []);
 
   useEffect(() => {
@@ -384,13 +379,15 @@ function GeneratorPage() {
     }
   };
 
-  const closePreview = () => {
+  const closePreview = async () => {
     setPreviewOpen(false);
+    if (!form.nomor) return;
+    resetForm();
+    await navigate({ to: "/laporan" });
   };
 
-  const persistSuratJalan = async () => {
-    await addRecord({
-      nomor: form.nomor,
+  const persistSuratJalan = async (): Promise<SuratJalanRecord> => {
+    const saved = await addRecord({
       tanggal: formatTanggal(form.tanggal),
       pengirim: form.pengirim,
       teleponPengirim: form.teleponPengirim,
@@ -402,28 +399,28 @@ function GeneratorPage() {
       invoiceNumber: poRef?.invoiceNumber ?? null,
       items: form.items,
     });
+    return saved as unknown as SuratJalanRecord;
   };
 
   const resetForm = () => {
     const today = todayISO();
-    setForm({ ...basePanel, nomor: generateNomor(), tanggal: today, items: [{ ...emptyItem }] });
+    setForm({ ...basePanel, tanggal: today, items: [{ ...emptyItem }] });
     setPoRef(null);
     prefilledFromPo.current = false;
   };
 
   const confirmSave = async () => {
     if (saving) return;
+    if (form.nomor) return;
     if (formKosong) {
       toast.error("Tidak ada data surat jalan yang tersimpan");
       return;
     }
     setSaving(true);
     try {
-      await persistSuratJalan();
-      toast.success("Surat jalan berhasil disimpan");
-      setPreviewOpen(false);
-      resetForm();
-      await navigate({ to: "/laporan" });
+      const saved = await persistSuratJalan();
+      setForm((prev) => ({ ...prev, nomor: saved.nomor }));
+      toast.success(`Surat jalan ${saved.nomor} berhasil disimpan`);
     } catch {
       toast.error("Gagal menyimpan surat jalan");
     } finally {
@@ -556,7 +553,7 @@ function GeneratorPage() {
                 <Button
                   type="button"
                   onClick={confirmSave}
-                  disabled={saving}
+                  disabled={saving || Boolean(form.nomor)}
                   className="h-11 rounded-lg bg-[#a33900] text-white shadow-sm hover:bg-[#8a3000]"
                 >
                   {saving ? (

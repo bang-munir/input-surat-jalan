@@ -30,14 +30,43 @@ export type NotaRecord = {
 const notaQueryKey = ["nota"] as const;
 const STALE_TIME = 60_000;
 
-function generateNomor(records: NotaRecord[]): string {
-  const used = new Set(records.map((r) => r.nomor));
-  let nomor: string;
-  do {
-    const n = Math.floor(Math.random() * 10000);
-    nomor = `NT-${String(n).padStart(4, "0")}`;
-  } while (used.has(nomor));
-  return nomor;
+export type SuratJalanSearchRecord = {
+  nomor: string;
+  pengirim: string;
+  kepada: string;
+  tanggal: string;
+  invoiceNumber?: string | null;
+};
+
+/**
+ * Pencarian pada layar pilih Surat Jalan untuk Nota. `invoiceNumber` ikut
+ * dicari supaya user dapat mengetik nomor PO (PO-4827) dan tetap menemukan
+ * Surat Jalan yang lahir dari PO tersebut.
+ */
+export function matchesSuratJalanSearch(sj: SuratJalanSearchRecord, query: string): boolean {
+  const haystack = `${sj.nomor} ${sj.pengirim} ${sj.kepada} ${sj.tanggal} ${sj.invoiceNumber ?? ""}`;
+  return haystack.toLowerCase().includes(query.toLowerCase());
+}
+
+/** Pesan toast untuk kegagalan addNota. `code` menyeberangi transport server fn. */
+export function notaCreateErrorMessage(error: unknown): string {
+  const failure = (typeof error === "object" && error !== null ? error : {}) as {
+    code?: unknown;
+    message?: unknown;
+  };
+  const code = typeof failure.code === "string" ? failure.code : "";
+  const message = typeof failure.message === "string" ? failure.message : "";
+
+  if (code === "SJ_HAS_NOTA" || message.includes("sudah memiliki Nota")) {
+    return "Surat Jalan ini sudah punya Nota. Satu Surat Jalan hanya boleh menghasilkan satu Nota.";
+  }
+  if (code === "SJ_NOT_FOUND") {
+    return "Surat Jalan tidak ditemukan. Muat ulang halaman lalu pilih Surat Jalan lain.";
+  }
+  if (code === "SJ_REQUIRED") {
+    return "Pilih Surat Jalan dulu sebelum menyimpan Nota.";
+  }
+  return "Gagal membuat Nota";
 }
 
 export function useNotaRecords() {
@@ -51,11 +80,7 @@ export function useNotaRecords() {
   });
 
   const addMutation = useMutation({
-    mutationFn: (data: Omit<NotaRecord, "id" | "nomor" | "createdAt">) => {
-      const current = queryClient.getQueryData<NotaRecord[]>(notaQueryKey) ?? [];
-      const nomor = generateNomor(current);
-      return addNota({ data: { ...data, nomor } });
-    },
+    mutationFn: (data: Omit<NotaRecord, "id" | "nomor" | "createdAt">) => addNota({ data }),
     onSuccess: (record) => {
       queryClient.setQueryData<NotaRecord[]>(notaQueryKey, (current) => [
         ...(current ?? []),

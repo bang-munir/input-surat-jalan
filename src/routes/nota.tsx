@@ -14,7 +14,6 @@ import {
   Pencil,
   Plus,
   Search,
-  ShoppingCart,
   Trash2,
   Truck,
   User,
@@ -24,7 +23,6 @@ import {
 import { toast } from "sonner";
 
 import { AppNav } from "@/components/AppNav";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -43,10 +41,15 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useNotaRecords, type NotaRecord, type NotaItem } from "@/lib/notaStorage";
+import {
+  matchesSuratJalanSearch,
+  notaCreateErrorMessage,
+  useNotaRecords,
+  type NotaRecord,
+  type NotaItem,
+} from "@/lib/notaStorage";
 import { buildNotaPdfA5, buildNotaPdfA4 } from "@/lib/notaPdf";
 import { downloadPdf as saveGeneratedPdf } from "@/lib/pdfDownload";
 import {
@@ -54,7 +57,7 @@ import {
   type SuratJalanItem,
   type SuratJalanRecord,
 } from "@/lib/suratJalanStorage";
-import { useBukuPoOrders, useBukuPoOrderDetail, useBukuPoCustomers } from "@/lib/bukuPo";
+import { useBukuPoOrderDetail } from "@/lib/bukuPo";
 import { cn } from "@/lib/utils";
 
 const JAKARTA_TIME_ZONE = "Asia/Jakarta";
@@ -326,12 +329,12 @@ function NotaPage() {
         onBack={() => setView("list")}
         onSave={async (data) => {
           try {
-            await addRecord(data);
-            toast.success("Nota berhasil dibuat");
+            const saved = (await addRecord(data)) as unknown as NotaRecord;
+            toast.success(`Nota ${saved.nomor} berhasil dibuat`);
             setView("list");
           } catch (err) {
             console.error(err);
-            toast.error("Gagal membuat Nota");
+            toast.error(notaCreateErrorMessage(err));
           }
         }}
       />
@@ -794,18 +797,14 @@ function SelectSuratJalan({
   sjRecords,
   onSelect,
   onBack,
-  onPickPo,
 }: {
   sjRecords: SuratJalanRecord[];
   onSelect: (sj: SuratJalanRecord) => void;
   onBack: () => void;
-  onPickPo: () => void;
 }) {
   const [q, setQ] = useState("");
 
-  const filtered = sjRecords.filter((r) =>
-    `${r.nomor} ${r.pengirim} ${r.kepada} ${r.tanggal}`.toLowerCase().includes(q.toLowerCase()),
-  );
+  const filtered = sjRecords.filter((r) => matchesSuratJalanSearch(r, q));
 
   const sorted = [...filtered].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -824,15 +823,6 @@ function SelectSuratJalan({
             >
               <ArrowLeft className="h-4 w-4" /> Kembali
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onPickPo}
-              className="h-11 rounded-lg border-0 bg-[#e5eeff] text-[#0b1c30] hover:bg-[#d8e6ff]"
-            >
-              <ShoppingCart className="h-4 w-4" />
-              <span>Pilih PO</span>
-            </Button>
             <div className="min-w-0">
               <h1 className="text-2xl font-bold tracking-tight text-[#0b1c30] sm:text-3xl">
                 Pilih Surat Jalan
@@ -848,7 +838,7 @@ function SelectSuratJalan({
             <Input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Cari Surat Jalan…"
+              placeholder="Cari Surat Jalan atau nomor PO…"
               className="h-11 rounded-xl border-0 bg-white pl-10 pr-10 text-sm shadow-sm placeholder:text-[#5a4138]/70 focus-visible:ring-1 focus-visible:ring-[#a33900]/40"
             />
             {q && (
@@ -931,164 +921,6 @@ function SelectSuratJalan({
   );
 }
 
-function BukuPoDialog({
-  open,
-  onOpenChange,
-  onSelect,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSelect: (detail: {
-    invoiceNumber: string;
-    customerName: string;
-    customerAddress: string;
-    customerPhone: string;
-    senderName: string;
-    items: { name: string; quantity: number; unitPrice: string }[];
-  }) => void;
-}) {
-  const { orders: poOrders, loading: poLoading, error: poQueryError } = useBukuPoOrders();
-  const { customers: bukuPoCustomers } = useBukuPoCustomers();
-  const [selectedPoId, setSelectedPoId] = useState<string | null>(null);
-  const { order: poDetail, loading: poDetailLoading } = useBukuPoOrderDetail(selectedPoId);
-  const [poSearch, setPoSearch] = useState("");
-  const prefilledFromPo = useRef(false);
-
-  const poError = poQueryError !== null;
-
-  const poList = useMemo(() => {
-    const q = poSearch.trim().toLocaleLowerCase("id-ID");
-    if (!q) return poOrders;
-    return poOrders.filter(
-      (po) =>
-        po.invoiceNumber.toLocaleLowerCase("id-ID").includes(q) ||
-        po.customerName.toLocaleLowerCase("id-ID").includes(q) ||
-        po.customerAddress.toLocaleLowerCase("id-ID").includes(q),
-    );
-  }, [poOrders, poSearch]);
-
-  useEffect(() => {
-    if (!open) {
-      setSelectedPoId(null);
-      setPoSearch("");
-      prefilledFromPo.current = false;
-    }
-  }, [open]);
-
-  useEffect(() => {
-    if (!poDetail || !selectedPoId) return;
-    if (prefilledFromPo.current) return;
-    prefilledFromPo.current = true;
-
-    const matchedCustomer = bukuPoCustomers.find((c) => c.id === poDetail.customerId);
-
-    onSelect({
-      invoiceNumber: poDetail.invoiceNumber,
-      customerName: poDetail.customerName,
-      customerAddress: poDetail.customerAddress,
-      customerPhone: matchedCustomer?.phone || "",
-      senderName: poDetail.senderName || "",
-      items: poDetail.items.map((item) => ({
-        name: item.name,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-      })),
-    });
-
-    onOpenChange(false);
-    setSelectedPoId(null);
-  }, [poDetail, selectedPoId]);
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[80vh] w-[95vw] max-w-[800px] flex-col gap-0 overflow-hidden p-0">
-        <DialogHeader className="shrink-0 border-b border-border/70 px-4 py-3 text-left sm:px-6">
-          <DialogTitle className="text-[15px] font-bold tracking-tight text-[#0b1c30]">
-            Pilih PO dari Buku-Po
-          </DialogTitle>
-          <DialogDescription className="text-[13px] text-muted-foreground">
-            Pilih Purchase Order untuk mengisi data Nota.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="shrink-0 border-b border-border/70 px-4 py-3 sm:px-6">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={poSearch}
-              onChange={(e) => setPoSearch(e.target.value)}
-              placeholder="Cari nomor PO atau nama pelanggan..."
-              className={cn(inputStitch, "pl-9 pr-3")}
-            />
-          </div>
-        </div>
-        <div className="min-h-0 flex-1 overflow-auto">
-          {selectedPoId && poDetailLoading ? (
-            <div className="flex items-center justify-center gap-2 p-6 text-[13px] text-[#5a4138]">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Memuat detail PO...
-            </div>
-          ) : poLoading ? (
-            <div className="space-y-2 p-4">
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-            </div>
-          ) : poError ? (
-            <div className="p-6 text-center text-[13px] text-destructive">
-              Gagal memuat data PO. Silakan coba lagi.
-            </div>
-          ) : poList.length === 0 ? (
-            <div className="p-6 text-center text-[13px] text-muted-foreground">
-              Tidak ada data PO tersedia.
-            </div>
-          ) : (
-            <div className="divide-y">
-              {poList.map((po) => (
-                <button
-                  key={po.id}
-                  type="button"
-                  disabled={selectedPoId === po.id && poDetailLoading}
-                  onClick={() => setSelectedPoId(po.id)}
-                  className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-[#eff4ff] disabled:opacity-50"
-                >
-                  <div className="mt-0.5 shrink-0 rounded-md bg-[#dce9ff] p-1.5">
-                    <FileText className="h-4 w-4 text-[#3f465c]" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-[#0b1c30]">{po.invoiceNumber}</span>
-                      <Badge variant="secondary" className="rounded-full border-0 bg-[#e5eeff] text-[11px] text-[#5a4138]">
-                        {po.status}
-                      </Badge>
-                      {selectedPoId === po.id && poDetailLoading && (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-[#a33900]" />
-                      )}
-                    </div>
-                    <p className="mt-0.5 text-[13px] text-[#5a4138]">{po.customerName}</p>
-                    {po.customerAddress && (
-                      <p className="mt-0.5 text-[12px] text-muted-foreground line-clamp-1">{po.customerAddress}</p>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        <DialogFooter className="shrink-0 gap-2 border-t border-border/70 px-4 py-3 sm:justify-end sm:space-x-0 sm:px-6">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            className="h-11 rounded-lg border-0 bg-[#e5eeff] text-[#0b1c30] hover:bg-[#d8e6ff]"
-          >
-            Batal
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 function CreateNota({
   sjRecords,
   onBack,
@@ -1100,19 +932,11 @@ function CreateNota({
 }) {
   const [step, setStep] = useState<"select" | "form">("select");
   const [selectedSJ, setSelectedSJ] = useState<SuratJalanRecord | null>(null);
-  const [selectedPo, setSelectedPo] = useState<{
-    invoiceNumber: string;
-    customerName: string;
-    customerAddress: string;
-    customerPhone: string;
-    senderName: string;
-  } | null>(null);
   const [tanggal, setTanggal] = useState(todayISO());
   const [items, setItems] = useState<NotaItem[]>([]);
   const [potong, setPotong] = useState(0);
   const [potongText, setPotongText] = useState("");
   const [priceTexts, setPriceTexts] = useState<string[]>([]);
-  const [poDialogOpen, setPoDialogOpen] = useState(false);
   const [alamat, setAlamat] = useState("");
   const [telepon, setTelepon] = useState("");
   const [autoPriceNote, setAutoPriceNote] = useState<string | null>(null);
@@ -1234,69 +1058,29 @@ function CreateNota({
 
   if (step === "select") {
     return (
-      <>
-        <SelectSuratJalan
-          sjRecords={sjRecords}
-          onBack={onBack}
-          onPickPo={() => setPoDialogOpen(true)}
-          onSelect={(sj) => {
-            autoPriceAppliedRef.current = false;
-            manualPriceIndexesRef.current = new Set();
-            poPriceErrorNotifiedRef.current = false;
-            setAutoPriceNote(null);
-            setSelectedSJ(sj);
-            setItems(
-              sj.items.map((it) => ({
-                ...it,
-                price: 0,
-                total: 0,
-              })),
-            );
-            setPriceTexts(sj.items.map(() => ""));
-            setTanggal(todayISO());
-            setPotong(0);
-            setPotongText("");
-            setStep("form");
-          }}
-        />
-        <BukuPoDialog
-          open={poDialogOpen}
-          onOpenChange={setPoDialogOpen}
-          onSelect={(po) => {
-            autoPriceAppliedRef.current = true;
-            manualPriceIndexesRef.current = new Set();
-            poPriceErrorNotifiedRef.current = false;
-            setAutoPriceNote(null);
-            setSelectedSJ(null);
-            setSelectedPo({
-              invoiceNumber: po.invoiceNumber,
-              customerName: po.customerName,
-              customerAddress: po.customerAddress,
-              customerPhone: po.customerPhone,
-              senderName: po.senderName,
-            });
-            setItems(
-              po.items.map((it) => ({
-                quantity: String(it.quantity),
-                name: it.name,
-                description: "",
-                price: parseInt(it.unitPrice, 10) || 0,
-                total: it.quantity * (parseInt(it.unitPrice, 10) || 0),
-              })),
-            );
-            setPriceTexts(po.items.map((it) => {
-              const p = parseInt(it.unitPrice, 10) || 0;
-              return p ? formatPotong(String(p)) : "";
-            }));
-            setTanggal(todayISO());
-            setPotong(0);
-            setPotongText("");
-            setAlamat(po.customerAddress);
-            setTelepon(po.customerPhone);
-            setStep("form");
-          }}
-        />
-      </>
+      <SelectSuratJalan
+        sjRecords={sjRecords}
+        onBack={onBack}
+        onSelect={(sj) => {
+          autoPriceAppliedRef.current = false;
+          manualPriceIndexesRef.current = new Set();
+          poPriceErrorNotifiedRef.current = false;
+          setAutoPriceNote(null);
+          setSelectedSJ(sj);
+          setItems(
+            sj.items.map((it) => ({
+              ...it,
+              price: 0,
+              total: 0,
+            })),
+          );
+          setPriceTexts(sj.items.map(() => ""));
+          setTanggal(todayISO());
+          setPotong(0);
+          setPotongText("");
+          setStep("form");
+        }}
+      />
     );
   }
 
@@ -1373,11 +1157,7 @@ function CreateNota({
                 Buat Nota
               </h1>
               <p className="mt-1.5 text-[13px] text-[#5a4138] sm:text-sm">
-                {selectedSJ
-                  ? `Berdasarkan Surat Jalan ${selectedSJ.nomor}`
-                  : selectedPo
-                    ? `Berdasarkan PO ${selectedPo.invoiceNumber}`
-                    : ""}
+                {selectedSJ ? `Berdasarkan Surat Jalan ${selectedSJ.nomor}` : ""}
               </p>
               {sjPoLoading && (
                 <p className="mt-1 text-[12px] text-[#5a4138]">Memuat harga dari PO…</p>
@@ -1395,9 +1175,9 @@ function CreateNota({
               <section className="space-y-3.5">
                 <SectionHeader icon={FileText}>Data Nota</SectionHeader>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label={selectedPo ? "Referensi PO" : "Referensi Surat Jalan"}>
+                  <Field label="Referensi Surat Jalan">
                     <Input
-                      value={selectedSJ?.nomor || selectedPo?.invoiceNumber || ""}
+                      value={selectedSJ?.nomor ?? ""}
                       readOnly
                       className={cn(inputStitch, "bg-[#eef3ff] text-[#5a4138]")}
                     />
@@ -1410,18 +1190,27 @@ function CreateNota({
                       className={inputStitch}
                     />
                   </Field>
+                  <Field label="No. Nota (otomatis)">
+                    <Input
+                      value=""
+                      readOnly
+                      tabIndex={-1}
+                      placeholder="Otomatis saat disimpan"
+                      className={cn(inputStitch, "bg-[#eef3ff] font-mono font-semibold")}
+                    />
+                  </Field>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="Pengirim">
                     <Input
-                      value={selectedSJ?.pengirim || selectedPo?.senderName || ""}
+                      value={selectedSJ?.pengirim ?? ""}
                       readOnly
                       className={cn(inputStitch, "bg-[#eef3ff] text-[#5a4138]")}
                     />
                   </Field>
                   <Field label="Penerima">
                     <Input
-                      value={selectedSJ?.kepada || selectedPo?.customerName || ""}
+                      value={selectedSJ?.kepada ?? ""}
                       readOnly
                       className={cn(inputStitch, "bg-[#eef3ff] text-[#5a4138]")}
                     />
@@ -1556,13 +1345,13 @@ function CreateNota({
               <Button
                 className="h-11 w-full rounded-lg bg-[#a33900] text-white shadow-sm hover:bg-[#8a3000]"
                 onClick={() => {
-                  if (!selectedSJ && !selectedPo) return;
+                  if (!selectedSJ) return;
                   onSave({
                     tanggal: formatTanggal(tanggal),
-                    suratJalanId: selectedSJ?.id ?? null,
-                    suratJalanNomor: selectedSJ?.nomor || selectedPo?.invoiceNumber || "",
-                    pengirim: selectedSJ?.pengirim || selectedPo?.senderName || "",
-                    penerima: selectedSJ?.kepada || selectedPo?.customerName || "",
+                    suratJalanId: selectedSJ.id,
+                    suratJalanNomor: selectedSJ.nomor,
+                    pengirim: selectedSJ.pengirim,
+                    penerima: selectedSJ.kepada,
                     alamat,
                     telepon,
                     items,
@@ -1577,27 +1366,27 @@ function CreateNota({
             </div>
 
             <div className="rounded-2xl border border-border/70 bg-white p-4 shadow-sm sm:p-6">
-              <SectionHeader icon={Truck}>
-                {selectedPo ? "Ringkasan PO" : "Ringkasan Surat Jalan"}
-              </SectionHeader>
+              <SectionHeader icon={Truck}>Ringkasan Surat Jalan</SectionHeader>
               <div className="mt-4 space-y-2 text-sm">
                 <div className="flex justify-between gap-3">
                   <span className="text-[#5a4138]">Nomor</span>
                   <span className="font-mono font-semibold text-[#0b1c30]">
-                    {selectedSJ?.nomor || selectedPo?.invoiceNumber}
+                    {selectedSJ?.nomor}
                   </span>
                 </div>
                 <div className="flex justify-between gap-3">
                   <span className="text-[#5a4138]">Tanggal</span>
-                  <span className="font-medium text-[#0b1c30]">{selectedSJ?.tanggal || formatTanggal(todayISO())}</span>
+                  <span className="font-medium text-[#0b1c30]">
+                    {selectedSJ?.tanggal || formatTanggal(todayISO())}
+                  </span>
                 </div>
                 <div className="flex justify-between gap-3">
                   <span className="text-[#5a4138]">Pengirim</span>
-                  <span className="font-medium text-[#0b1c30]">{selectedSJ?.pengirim || selectedPo?.senderName || "-"}</span>
+                  <span className="font-medium text-[#0b1c30]">{selectedSJ?.pengirim || "-"}</span>
                 </div>
                 <div className="flex justify-between gap-3">
                   <span className="text-[#5a4138]">Penerima</span>
-                  <span className="font-medium text-[#0b1c30]">{selectedSJ?.kepada || selectedPo?.customerName || "-"}</span>
+                  <span className="font-medium text-[#0b1c30]">{selectedSJ?.kepada || "-"}</span>
                 </div>
               </div>
               <div className="mt-5">
