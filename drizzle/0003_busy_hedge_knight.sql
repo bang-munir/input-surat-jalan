@@ -1,0 +1,1 @@
+ALTER TABLE "surat_jalan" ADD COLUMN "show_signature" boolean DEFAULT true NOT NULL;

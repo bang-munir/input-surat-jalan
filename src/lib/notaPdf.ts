@@ -1,11 +1,19 @@
 import type { jsPDF } from "jspdf";
 import type { NotaRecord } from "./notaStorage";
+import { isMunirSender, loadSignatureAsset, type SignatureAsset } from "./suratJalanPdf";
 
 const INK = [26, 42, 74] as [number, number, number];
 const BRAND = [47, 82, 143] as [number, number, number];
 const LINE = [150, 165, 190] as [number, number, number];
 const LIGHT_BG = [238, 243, 249] as [number, number, number];
 const RED = [180, 50, 50] as [number, number, number];
+
+// Ukuran tanda tangan mengikuti Surat Jalan (T3) supaya keduanya identik.
+// Nilai disalin, bukan di-import, karena konstanta di suratJalanPdf.ts sengaja
+// module-private dan file itu tidak boleh diubah pada tahap ini.
+const SIGNATURE_HEIGHT = 9;
+const SIGNATURE_GAP = 2.4;
+const SIGNATURE_ALIAS = "signature-munir";
 
 function has(v?: string) {
   return Boolean(v && v.trim());
@@ -32,7 +40,7 @@ const COL_NAMA = CW - COL_NO - COL_KET - COL_QTY - COL_HRG - COL_TOT;
 const ROW_H = 7;
 const TABLE_HEAD_H = 7;
 
-function drawNotaContent(pdf: jsPDF, data: NotaRecord) {
+function drawNotaContent(pdf: jsPDF, data: NotaRecord, signature?: SignatureAsset | null) {
   pdf.setDrawColor(...BRAND);
   pdf.setLineWidth(0.25);
   pdf.rect(4, 4, PW - 8, PH - 8, "D");
@@ -233,6 +241,30 @@ function drawNotaContent(pdf: jsPDF, data: NotaRecord) {
   pdf.text(`(  ${data.pengirim || ".............................."}  )`, rightCx, sName, {
     align: "center",
   });
+
+  if (signature) {
+    const signH = SIGNATURE_HEIGHT;
+    const signW = signH * signature.ratio;
+    pdf.addImage(
+      signature.dataUrl,
+      "PNG",
+      rightCx - signW / 2,
+      sName - SIGNATURE_GAP - signH,
+      signW,
+      signH,
+      SIGNATURE_ALIAS,
+      "FAST",
+    );
+  }
+}
+
+/**
+ * Asset tanda tangan hanya dimuat bila `nota.show_signature` true, jadi Nota
+ * tanpa tanda tangan tidak menyentuh jaringan sama sekali.
+ */
+async function resolveSignature(data: NotaRecord): Promise<SignatureAsset | null> {
+  if (data.showSignature !== true) return null;
+  return await loadSignatureAsset();
 }
 
 /** PDF A5 Landscape: 210 × 148.5 mm */
@@ -245,7 +277,8 @@ export async function buildNotaPdfA5(data: NotaRecord) {
     compress: true,
   });
 
-  drawNotaContent(pdf, data);
+  const sign = await resolveSignature(data);
+  drawNotaContent(pdf, data, isMunirSender(data.pengirim) ? sign : null);
 
   pdf.setProperties({
     title: `Nota ${data.nomor || ""}`.trim(),
@@ -266,7 +299,8 @@ export async function buildNotaPdfA4(data: NotaRecord) {
     compress: true,
   });
 
-  drawNotaContent(pdf, data);
+  const sign = await resolveSignature(data);
+  drawNotaContent(pdf, data, isMunirSender(data.pengirim) ? sign : null);
 
   pdf.setProperties({
     title: `Nota ${data.nomor || ""}`.trim(),

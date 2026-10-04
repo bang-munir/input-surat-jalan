@@ -44,6 +44,7 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -51,7 +52,7 @@ import { useCustomers } from "@/lib/customers";
 import { useSenders } from "@/lib/senders";
 import { useSuratJalanRecords, type SuratJalanRecord } from "@/lib/suratJalanStorage";
 import { useBukuPoOrders, useBukuPoOrderDetail, useBukuPoCustomers } from "@/lib/bukuPo";
-import { buildSuratJalanPdf, type SlipData } from "@/lib/suratJalanPdf";
+import { buildSuratJalanPdf, isMunirSender, type SlipData } from "@/lib/suratJalanPdf";
 import { downloadPdf as saveGeneratedPdf } from "@/lib/pdfDownload";
 
 export const Route = createFileRoute("/surat-jalan")({
@@ -273,6 +274,7 @@ function GeneratorPage() {
   const [selectedPoId, setSelectedPoId] = useState<string | null>(null);
   const [poRef, setPoRef] = useState<PoRef | null>(null);
   const [poSearch, setPoSearch] = useState("");
+  const [showSignature, setShowSignature] = useState(true);
 
   useEffect(() => {
     setForm((prev) => ({ ...prev, tanggal: todayISO() }));
@@ -347,7 +349,13 @@ function GeneratorPage() {
 
   const formKosong = isEmptySlip(form);
 
-  const buildPdf = () => buildSuratJalanPdf(renderSlip as SlipData, renderSlip as SlipData);
+  // Tanda tangan hanya berlaku bila pengirim Munir; sumber flag tunggal untuk
+  // pratinjau, unduhan, dan cetak.
+  const senderIsMunir = isMunirSender(form.pengirim);
+  const renderSignature = senderIsMunir && showSignature;
+
+  const buildPdf = () =>
+    buildSuratJalanPdf(renderSlip as SlipData, renderSlip as SlipData, undefined, renderSignature);
 
   const downloadPdf = async () => {
     setBusy(true);
@@ -397,6 +405,7 @@ function GeneratorPage() {
       alamat: form.alamat,
       orderId: poRef?.orderId ?? null,
       invoiceNumber: poRef?.invoiceNumber ?? null,
+      showSignature: renderSignature,
       items: form.items,
     });
     return saved as unknown as SuratJalanRecord;
@@ -405,6 +414,7 @@ function GeneratorPage() {
   const resetForm = () => {
     const today = todayISO();
     setForm({ ...basePanel, tanggal: today, items: [{ ...emptyItem }] });
+    setShowSignature(true);
     setPoRef(null);
     prefilledFromPo.current = false;
   };
@@ -486,6 +496,9 @@ function GeneratorPage() {
             customersLoaded={customersLoaded}
             senders={senders}
             sendersLoaded={sendersLoaded}
+            senderIsMunir={senderIsMunir}
+            showSignature={showSignature}
+            onShowSignatureChange={setShowSignature}
           />
 
           <Dialog
@@ -666,6 +679,9 @@ function PanelForm({
   customersLoaded,
   senders,
   sendersLoaded,
+  senderIsMunir,
+  showSignature,
+  onShowSignatureChange,
 }: {
   data: PanelData;
   onChange: (d: PanelData) => void;
@@ -673,6 +689,9 @@ function PanelForm({
   customersLoaded: boolean;
   senders: ReturnType<typeof useSenders>["senders"];
   sendersLoaded: boolean;
+  senderIsMunir: boolean;
+  showSignature: boolean;
+  onShowSignatureChange: (value: boolean) => void;
 }) {
   const set = (k: keyof PanelData) => (v: string) => onChange({ ...data, [k]: v });
 
@@ -813,6 +832,37 @@ function PanelForm({
               />
             </Field>
           </div>
+          {senderIsMunir && (
+            <div className="rounded-xl border-0 bg-[#eff4ff] px-3.5 py-3 shadow-none">
+              <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="min-w-0 space-y-0.5">
+                  <Label
+                    htmlFor="show-signature"
+                    className="block cursor-pointer text-[13px] font-semibold text-[#0b1c30]"
+                  >
+                    Tanda Tangan Pengirim
+                  </Label>
+                  <p className="text-[12px] leading-relaxed text-muted-foreground">
+                    Tanda tangan Munir akan muncul di PDF.
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2.5">
+                  <Switch
+                    id="show-signature"
+                    checked={showSignature}
+                    onCheckedChange={(checked) => onShowSignatureChange(checked === true)}
+                    className="h-5 w-9 data-[state=checked]:bg-[#a33900] data-[state=unchecked]:bg-[#c3d0e4]"
+                  />
+                  <Label
+                    htmlFor="show-signature"
+                    className="cursor-pointer text-[13px] leading-none text-[#0b1c30]"
+                  >
+                    Tampilkan tanda tangan di PDF
+                  </Label>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
 
         <Separator />

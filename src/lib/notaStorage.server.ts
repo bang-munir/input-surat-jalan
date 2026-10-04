@@ -199,6 +199,8 @@ export type NotaInput = {
   subtotal: number;
   potong: number;
   total: number;
+  /** Pilihan tanda tangan dari form Nota. Absent = default true. */
+  showSignature?: boolean;
 };
 
 /**
@@ -232,6 +234,7 @@ export function sanitizeNotaInput(data: NotaInput) {
     subtotal: data.subtotal,
     potong: data.potong,
     total: data.total,
+    showSignature: data.showSignature,
   };
 }
 
@@ -306,6 +309,7 @@ export const addNota = createServerFn({ method: "POST" })
               subtotal: data.subtotal,
               potong: data.potong,
               total: data.total,
+              showSignature: data.showSignature ?? true,
             })
             .returning();
           if (!inserted) {
@@ -355,6 +359,7 @@ export const updateNota = createServerFn({ method: "POST" })
       subtotal: number;
       potong: number;
       total: number;
+      showSignature?: boolean;
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -370,6 +375,7 @@ export const updateNota = createServerFn({ method: "POST" })
           subtotal: data.subtotal,
           potong: data.potong,
           total: data.total,
+          showSignature: data.showSignature ?? true,
         })
         .where(eq(nota.id, data.id));
 

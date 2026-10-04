@@ -1,0 +1,1 @@
+ALTER TABLE "nota" ADD COLUMN "show_signature" boolean DEFAULT true NOT NULL;

@@ -261,6 +261,7 @@ function LaporanPage() {
     kepada: "",
     telepon: "",
     alamat: "",
+    showSignature: true,
     items: [],
   });
   const [busy, setBusy] = useState(false);
@@ -296,6 +297,7 @@ function LaporanPage() {
       kepada: record.kepada || "",
       telepon: record.telepon || "",
       alamat: record.alamat || "",
+      showSignature: record.showSignature,
       items: record.items
         ? record.items.map((item) => ({
             quantity: item.quantity || "",
@@ -348,7 +350,12 @@ function LaporanPage() {
   const downloadPdf = async (record: SuratJalanRecord) => {
     setBusy(true);
     try {
-      const pdf = await buildSuratJalanPdf(toSlipData(record), null);
+      const pdf = await buildSuratJalanPdf(
+        toSlipData(record),
+        null,
+        undefined,
+        record.showSignature,
+      );
       await saveGeneratedPdf(pdf, `Surat-Jalan-${record.nomor || "tanpa-nomor"}.pdf`);
       toast.success("PDF berhasil diunduh");
     } catch {
@@ -362,7 +369,12 @@ function LaporanPage() {
     if (!detail) return;
     setPreviewBusy(true);
     try {
-      const pdf = await buildSuratJalanPdf(toSlipData(detail), null);
+      const pdf = await buildSuratJalanPdf(
+        toSlipData(detail),
+        null,
+        undefined,
+        detail.showSignature,
+      );
       setPreviewUrl(URL.createObjectURL(pdf.output("blob")));
       setPreviewOpen(true);
     } catch {

@@ -42,15 +42,18 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   matchesSuratJalanSearch,
   notaCreateErrorMessage,
   useNotaRecords,
+  type NotaEditableFields,
   type NotaRecord,
   type NotaItem,
 } from "@/lib/notaStorage";
 import { buildNotaPdfA5, buildNotaPdfA4 } from "@/lib/notaPdf";
+import { isMunirSender } from "@/lib/suratJalanPdf";
 import { downloadPdf as saveGeneratedPdf } from "@/lib/pdfDownload";
 import {
   useSuratJalanRecords,
@@ -218,6 +221,49 @@ function SectionHeader({ icon: Icon, children }: { icon: LucideIcon; children: R
       <span className="h-4 w-1.5 shrink-0 rounded-full bg-[#a33900]" />
       <Icon className="h-4 w-4 shrink-0 text-[#a33900]" />
       <h2 className="text-sm font-bold tracking-tight text-[#0b1c30]">{children}</h2>
+    </div>
+  );
+}
+
+/**
+ * Kontrol tanda tangan pengirim Nota. Sama seperti switch di Surat Jalan:
+ * compact, satu blok, dan hanya dirender kalau pengirim Munir.
+ */
+function SignatureToggle({
+  checked,
+  onCheckedChange,
+  id,
+}: {
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  id: string;
+}) {
+  return (
+    <div className="rounded-xl border-0 bg-[#eff4ff] px-3.5 py-3 shadow-none">
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="min-w-0 space-y-0.5">
+          <Label
+            htmlFor={id}
+            className="block cursor-pointer text-[13px] font-semibold text-[#0b1c30]"
+          >
+            Tanda Tangan Pengirim
+          </Label>
+          <p className="text-[12px] leading-relaxed text-muted-foreground">
+            Tanda tangan Munir akan muncul di PDF.
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2.5">
+          <Switch
+            id={id}
+            checked={checked}
+            onCheckedChange={(next) => onCheckedChange(next === true)}
+            className="h-5 w-9 data-[state=checked]:bg-[#a33900] data-[state=unchecked]:bg-[#c3d0e4]"
+          />
+          <Label htmlFor={id} className="cursor-pointer text-[13px] leading-none text-[#0b1c30]">
+            Tampilkan tanda tangan di PDF
+          </Label>
+        </div>
+      </div>
     </div>
   );
 }
@@ -928,7 +974,7 @@ function CreateNota({
 }: {
   sjRecords: SuratJalanRecord[];
   onBack: () => void;
-  onSave: (data: Omit<NotaRecord, "id" | "nomor" | "createdAt">) => void;
+  onSave: (data: NotaEditableFields) => void;
 }) {
   const [step, setStep] = useState<"select" | "form">("select");
   const [selectedSJ, setSelectedSJ] = useState<SuratJalanRecord | null>(null);
@@ -940,6 +986,10 @@ function CreateNota({
   const [alamat, setAlamat] = useState("");
   const [telepon, setTelepon] = useState("");
   const [autoPriceNote, setAutoPriceNote] = useState<string | null>(null);
+  const [showSignature, setShowSignature] = useState(true);
+
+  // Pengirim Nota mewarisi Surat Jalan terpilih, jadi gate tanda tangan juga.
+  const senderIsMunir = isMunirSender(selectedSJ?.pengirim);
 
   // Referensi PO milik Surat Jalan yang dipilih. Hanya diisi kalau SJ dibuat dari PO.
   const sjOrderId = selectedSJ?.orderId ?? null;
@@ -1216,6 +1266,13 @@ function CreateNota({
                     />
                   </Field>
                 </div>
+                {senderIsMunir && (
+                  <SignatureToggle
+                    id="nota-create-show-signature"
+                    checked={showSignature}
+                    onCheckedChange={setShowSignature}
+                  />
+                )}
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="No. Telp Penerima (opsional)">
                     <Input
@@ -1358,6 +1415,7 @@ function CreateNota({
                     subtotal,
                     potong,
                     total,
+                    showSignature: senderIsMunir && showSignature,
                   });
                 }}
               >
@@ -1665,7 +1723,7 @@ function EditNota({
   record: NotaRecord;
   sjRecords: SuratJalanRecord[];
   onBack: () => void;
-  onSave: (data: Omit<NotaRecord, "id" | "nomor" | "createdAt">) => void;
+  onSave: (data: NotaEditableFields) => void;
 }) {
   const [tanggal, setTanggal] = useState(() => {
     const d = new Date(record.tanggal);
@@ -1681,6 +1739,10 @@ function EditNota({
   const [pengirim, setPengirim] = useState(record.pengirim || "");
   const [alamat, setAlamat] = useState(record.alamat || "");
   const [telepon, setTelepon] = useState(record.telepon || "");
+  const [showSignature, setShowSignature] = useState(record.showSignature !== false);
+
+  // Pengirim bisa diedit, jadi gate tanda tangan ikut mengikuti isinya.
+  const senderIsMunir = isMunirSender(pengirim);
 
   const setItemField = (index: number, field: keyof NotaItem, value: string | number) => {
     setItems((prev) => {
@@ -1808,6 +1870,13 @@ function EditNota({
                     />
                   </Field>
                 </div>
+                {senderIsMunir && (
+                  <SignatureToggle
+                    id="nota-edit-show-signature"
+                    checked={showSignature}
+                    onCheckedChange={setShowSignature}
+                  />
+                )}
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field label="No. Telp Penerima (opsional)">
                     <Input
@@ -1939,6 +2008,7 @@ function EditNota({
                     subtotal,
                     potong,
                     total,
+                    showSignature: senderIsMunir && showSignature,
                   });
                 }}
               >

@@ -177,6 +177,8 @@ export type SuratJalanInput = {
   alamat: string;
   orderId?: string | null;
   invoiceNumber?: string | null;
+  /** Pilihan tanda tangan saat disimpan; absent berarti default ON. */
+  showSignature?: boolean;
   items: { quantity: string; name: string; description: string }[];
 };
 
@@ -195,6 +197,7 @@ export function sanitizeSuratJalanInput(data: SuratJalanInput) {
     alamat: data.alamat,
     orderId: data.orderId ?? null,
     invoiceNumber: data.invoiceNumber ?? null,
+    showSignature: data.showSignature ?? true,
     items: data.items.map((item) => ({
       quantity: item.quantity,
       name: item.name,
@@ -254,6 +257,7 @@ export const addSuratJalan = createServerFn({ method: "POST" })
               alamat: data.alamat,
               orderId: data.orderId,
               invoiceNumber: data.invoiceNumber,
+              showSignature: data.showSignature ?? true,
             })
             .returning();
           if (!inserted) {

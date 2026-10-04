@@ -22,8 +22,109 @@ const INK = [26, 42, 74] as [number, number, number];
 const BRAND = [47, 82, 143] as [number, number, number];
 const LINE = [150, 165, 190] as [number, number, number];
 
+/** Tanda tangan png transparan; ratio = lebar / tinggi area tinta. */
+export type SignatureAsset = { dataUrl: string; ratio: number };
+
+const SIGNATURE_FILE = "assets/signature-munir.png";
+const SIGNATURE_ALIAS = "signature-munir";
+const SIGNATURE_ALPHA_CUTOFF = 8;
+const SIGNATURE_HEIGHT = 9;
+const SIGNATURE_GAP = 2.4;
+
+function signatureUrl(): string {
+  const base = import.meta.env.BASE_URL || "/";
+  return `${base}${SIGNATURE_FILE}`.replace(/([^:])\/{2,}/g, "$1/");
+}
+
+function readAsDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error ?? new Error("Gagal membaca gambar"));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function decodeImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Gagal memuat gambar"));
+    img.src = src;
+  });
+}
+
+/** Memotong bingkai transparan agar posisi tanda tangan mengikuti area tinta. */
+function trimTransparentEdges(img: HTMLImageElement): SignatureAsset | null {
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx || w === 0 || h === 0) return null;
+  ctx.drawImage(img, 0, 0);
+
+  const pixels = ctx.getImageData(0, 0, w, h).data;
+  let minX = w;
+  let minY = h;
+  let maxX = -1;
+  let maxY = -1;
+  for (let py = 0; py < h; py++) {
+    for (let px = 0; px < w; px++) {
+      const alpha = pixels[(py * w + px) * 4 + 3] ?? 0;
+      if (alpha <= SIGNATURE_ALPHA_CUTOFF) continue;
+      if (px < minX) minX = px;
+      if (px > maxX) maxX = px;
+      if (py < minY) minY = py;
+      if (py > maxY) maxY = py;
+    }
+  }
+  if (maxX < minX || maxY < minY) return null;
+
+  const tw = maxX - minX + 1;
+  const th = maxY - minY + 1;
+  const cropped = document.createElement("canvas");
+  cropped.width = tw;
+  cropped.height = th;
+  const croppedCtx = cropped.getContext("2d");
+  if (!croppedCtx) return null;
+  croppedCtx.drawImage(img, minX, minY, tw, th, 0, 0, tw, th);
+
+  return { dataUrl: cropped.toDataURL("image/png"), ratio: tw / th };
+}
+
+let signatureCache: Promise<SignatureAsset | null> | null = null;
+
+/** Memuat tanda tangan sekali lalu dipakai ulang untuk seluruh PDF. */
+export function loadSignatureAsset(): Promise<SignatureAsset | null> {
+  if (typeof document === "undefined" || typeof fetch !== "function") {
+    return Promise.resolve(null);
+  }
+  if (!signatureCache) {
+    signatureCache = (async () => {
+      try {
+        const res = await fetch(signatureUrl());
+        if (!res.ok) return null;
+        const dataUrl = await readAsDataUrl(await res.blob());
+        return trimTransparentEdges(await decodeImage(dataUrl));
+      } catch {
+        return null;
+      }
+    })();
+  }
+  return signatureCache;
+}
+
 function has(v?: string) {
   return Boolean(v && v.trim());
+}
+
+const MUNIR_SENDER = "munir";
+
+/** Pembanding nama pengirim: abaikan spasi tepi dan huruf besar/kecil. */
+export function isMunirSender(pengirim?: string): boolean {
+  return (pengirim ?? "").trim().toLowerCase() === MUNIR_SENDER;
 }
 
 /** Baris "Label : Nilai" yang otomatis hilang bila nilai kosong. */
@@ -37,7 +138,12 @@ function rows(list: FieldRow[]) {
  * Menggambar satu surat jalan A5 lanskap (210mm x 148.5mm) pada posisi offsetY.
  * Semua teks digambar sebagai teks vektor agar tajam saat dicetak.
  */
-export function drawSlip(pdf: jsPDF, data: SlipData, offsetY: number) {
+export function drawSlip(
+  pdf: jsPDF,
+  data: SlipData,
+  offsetY: number,
+  signature?: SignatureAsset | null,
+) {
   const W = 210;
   const H = 148.5;
   const ml = 10;
@@ -195,6 +301,21 @@ export function drawSlip(pdf: jsPDF, data: SlipData, offsetY: number) {
   pdf.setFont("helvetica", "bold");
   pdf.text(`(  ${data.pengirim || "................."}  )`, mr - 50, sName, { align: "center" });
 
+  if (signature) {
+    const signH = SIGNATURE_HEIGHT;
+    const signW = signH * signature.ratio;
+    pdf.addImage(
+      signature.dataUrl,
+      "PNG",
+      mr - 50 - signW / 2,
+      sName - SIGNATURE_GAP - signH,
+      signW,
+      signH,
+      SIGNATURE_ALIAS,
+      "FAST",
+    );
+  }
+
   pdf.setDrawColor(...LINE);
   pdf.setLineWidth(0.2);
   pdf.line(ml, y(118) + shift, mr, y(118) + shift);
@@ -217,8 +338,18 @@ export function drawSlip(pdf: jsPDF, data: SlipData, offsetY: number) {
   }
 }
 
-/** Membuat PDF A4 potret satu halaman berisi dua surat jalan A5 lanskap. */
-export async function buildSuratJalanPdf(atas: SlipData, bawah: SlipData | null) {
+/**
+ * Membuat PDF A4 potret satu halaman berisi dua surat jalan A5 lanskap.
+ *
+ * Tanda tangan hanya digambar bila `showSignature === true` dan pengirim
+ * bernama Munir (trim + case-insensitive). Bila tidak, gambar tidak dimuat.
+ */
+export async function buildSuratJalanPdf(
+  atas: SlipData,
+  bawah: SlipData | null,
+  signature?: SignatureAsset | null,
+  showSignature?: boolean,
+) {
   const { jsPDF: JsPDF } = await import("jspdf");
   const pdf = new JsPDF({
     orientation: "portrait",
@@ -227,8 +358,15 @@ export async function buildSuratJalanPdf(atas: SlipData, bawah: SlipData | null)
     compress: true,
   });
 
-  drawSlip(pdf, atas, 0);
-  if (bawah) drawSlip(pdf, bawah, 148.5);
+  const sign =
+    showSignature === true
+      ? signature === undefined
+        ? await loadSignatureAsset()
+        : signature
+      : null;
+
+  drawSlip(pdf, atas, 0, isMunirSender(atas.pengirim) ? sign : null);
+  if (bawah) drawSlip(pdf, bawah, 148.5, isMunirSender(bawah.pengirim) ? sign : null);
 
   pdf.setProperties({
     title: `Surat Jalan ${atas.nomor || ""}`.trim(),

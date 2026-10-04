@@ -22,6 +22,20 @@
       "when": 1790928662046,
       "tag": "0002_flawless_tag",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791097385625,
+      "tag": "0003_busy_hedge_knight",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791142309792,
+      "tag": "0004_unusual_cyclops",
+      "breakpoints": true
     }
   ]
 }

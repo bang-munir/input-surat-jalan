@@ -24,8 +24,16 @@ export type NotaRecord = {
   subtotal: number;
   potong: number;
   total: number;
+  /**
+   * Kolom milik Nota sendiri (`nota.show_signature`), bukan turunan Surat Jalan.
+   * Hanya dibaca saat membuat PDF dan di-/off-kan lewat switch di form Nota.
+   */
+  showSignature: boolean;
   createdAt: string;
 };
+
+/** Field Nota yang boleh dikirim form create/update. */
+export type NotaEditableFields = Omit<NotaRecord, "id" | "nomor" | "createdAt">;
 
 const notaQueryKey = ["nota"] as const;
 const STALE_TIME = 60_000;
@@ -80,7 +88,7 @@ export function useNotaRecords() {
   });
 
   const addMutation = useMutation({
-    mutationFn: (data: Omit<NotaRecord, "id" | "nomor" | "createdAt">) => addNota({ data }),
+    mutationFn: (data: NotaEditableFields) => addNota({ data }),
     onSuccess: (record) => {
       queryClient.setQueryData<NotaRecord[]>(notaQueryKey, (current) => [
         ...(current ?? []),
@@ -91,7 +99,7 @@ export function useNotaRecords() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: (vars: { id: string; data: Omit<NotaRecord, "id" | "nomor" | "createdAt"> }) =>
+    mutationFn: (vars: { id: string; data: NotaEditableFields }) =>
       updateNota({ data: { id: vars.id, ...vars.data } }),
     onSuccess: (_result, vars) => {
       queryClient.setQueryData<NotaRecord[]>(notaQueryKey, (current) =>
@@ -115,12 +123,11 @@ export function useNotaRecords() {
   const loaded = query.isSuccess;
 
   const addRecord = useCallback(
-    (data: Omit<NotaRecord, "id" | "nomor" | "createdAt">) => addMutation.mutateAsync(data),
+    (data: NotaEditableFields) => addMutation.mutateAsync(data),
     [addMutation],
   );
   const updateRecord = useCallback(
-    (id: string, data: Omit<NotaRecord, "id" | "nomor" | "createdAt">) =>
-      updateMutation.mutateAsync({ id, data }),
+    (id: string, data: NotaEditableFields) => updateMutation.mutateAsync({ id, data }),
     [updateMutation],
   );
   const removeRecord = useCallback(

@@ -1,4 +1,5 @@
 import {
+  boolean,
   index,
   integer,
   pgTable,
@@ -66,6 +67,10 @@ export const suratJalan = pgTable(
     // lokal. Nullable: Surat Jalan manual dan Surat Jalan lama tidak punya PO.
     orderId: text("order_id"),
     invoiceNumber: text("invoice_number"),
+    // Pilihan "Tampilkan tanda tangan" saat Surat Jalan disimpan (T5). Default
+    // true: Surat Jalan lama dibuat saat tanda tangan Munir masih otomatis,
+    // jadi unduhan ulang dari Laporan harus hasilnya sama.
+    showSignature: boolean("show_signature").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
@@ -115,6 +120,10 @@ export const nota = pgTable(
     subtotal: integer("subtotal").notNull().default(0),
     potong: integer("potong").notNull().default(0),
     total: integer("total").notNull().default(0),
+    // Pilihan "Tampilkan tanda tangan" owned Nota, tidak lagi mengikuti Surat
+    // Jalan induknya. Default true: Nota lama belum punya kolom ini dan harus
+    // tetap merender tanda tangan seperti sebelumnya.
+    showSignature: boolean("show_signature").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({

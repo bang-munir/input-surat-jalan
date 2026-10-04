@@ -28,6 +28,8 @@ export type SuratJalanRecord = {
   orderId?: string | null;
   /** Snapshot nomor invoice PO, supaya tampilan tidak bergantung pada API. */
   invoiceNumber?: string | null;
+  /** Pilihan tanda tangan pengirim saat disimpan; Laporan memakainya saat remake PDF. */
+  showSignature: boolean;
   items: SuratJalanItem[];
   createdAt: string;
 };
